@@ -125,7 +125,7 @@
   .status-badge.running { background: #1d3520; color: var(--green); }
   .status-badge.ready { background: #1d3520; color: var(--green); }
   .status-badge.error { background: #3d1d1d; color: var(--red); }
-  .server-actions { display: flex; gap: 6px; align-items: center; }
+  .server-actions { display: flex; gap: 8px; align-items: center; }
 
   /* Enable toggle switch */
   .toggle-switch {
@@ -360,7 +360,7 @@
     </div>
     <div class="form-group">
       <label>Server ID</label>
-      <input id="serverId" placeholder="my-server">
+      <input id="serverId" placeholder="my-server" pattern="^[a-zA-Z0-9_-]+$" title="Only letters, numbers, dashes and underscores">
     </div>
     <div class="transport-toggle" id="transportToggle">
       <button onclick="setTransport('stdio')" id="transportStdio" class="active">STDIO</button>
@@ -913,7 +913,7 @@ function applyTemplate() {
   const name = document.getElementById('templateSelect').value;
   const t = templates.find(x => x.name === name);
   if (!t) return;
-  document.getElementById('serverId').value = name.toLowerCase().replace(/\s+/g, '-');
+  document.getElementById('serverId').value = name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9_-]/g, '');
   setTransport('stdio');
   document.getElementById('serverCommand').value = t.config.command;
   document.getElementById('serverArgs').value = (t.config.args || []).join('\n');
@@ -924,6 +924,7 @@ function applyTemplate() {
 async function submitServerModal() {
   const id = document.getElementById('serverId').value.trim();
   if (!id) { alert('Server ID is required'); return; }
+  if (!/^[a-zA-Z0-9_-]+$/.test(id)) { alert('Server ID may only contain letters, numbers, dashes and underscores'); return; }
 
   let config;
   if (currentTransport === 'stdio') {
@@ -934,7 +935,7 @@ async function submitServerModal() {
     const env = {};
     envLines.forEach(line => {
       const eq = line.indexOf('=');
-      if (eq > 0) env[line.slice(0, eq)] = line.slice(eq + 1);
+      if (eq > 0) env[line.slice(0, eq).trim()] = line.slice(eq + 1).trim();
     });
     config = { command, args, env };
   } else {
