@@ -1,0 +1,40 @@
+[package]
+name = "mcpsm"
+description = "A Model Context Protocol Server Manager (MCPSM) implementation in Rust."
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+objc2 = "0.6"
+objc2-foundation = { version = "0.3", features = [
+    "NSString", "NSObject", "NSGeometry", "NSNotification",
+    "NSThread", "NSTimer", "NSDate",
+] }
+objc2-app-kit = { version = "0.3", features = [
+    "NSApplication", "NSMenu", "NSMenuItem", "NSImage",
+    "NSRunningApplication", "NSStatusBar", "NSStatusItem",
+    "NSStatusBarButton",
+] }
+tokio = { version = "1", features = ["full"] }
+tokio-stream = { version = "0.1", features = ["sync"] }
+axum = "0.8"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+dirs = "6"
+libc = "0.2"
+open = "5"
+rmcp = { version = "0.2", features = [
+    "client",
+    "server",
+    "transport-child-process",
+    "transport-streamable-http-server",
+    "transport-streamable-http-client",
+    "reqwest",
+] }
+anyhow = "1"
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls"] }
+
+[dev-dependencies]
+tempfile = "3"

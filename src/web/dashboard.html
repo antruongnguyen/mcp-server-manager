@@ -1,0 +1,542 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MCPSM — MCP Server Manager</title>
+<style>
+  :root {
+    --bg: #1e1e2e;
+    --surface: #282840;
+    --surface2: #313150;
+    --border: #3e3e5e;
+    --text: #e0e0f0;
+    --text2: #a0a0c0;
+    --accent: #7c7cf0;
+    --accent-hover: #9090ff;
+    --green: #50d080;
+    --yellow: #e0c050;
+    --red: #f06060;
+    --orange: #e09050;
+    --blue: #60a0f0;
+    --radius: 8px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg); color: var(--text);
+    height: 100vh; display: flex; flex-direction: column;
+  }
+
+  /* Header */
+  header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 12px 20px; background: var(--surface); border-bottom: 1px solid var(--border);
+  }
+  header h1 { font-size: 16px; font-weight: 600; }
+  .header-actions { display: flex; gap: 8px; align-items: center; }
+  .proxy-badge {
+    font-size: 11px; padding: 3px 10px; border-radius: 12px;
+    background: #1d3520; color: var(--green); font-weight: 500;
+    cursor: pointer; position: relative;
+  }
+  .proxy-badge:hover .proxy-tooltip {
+    display: block;
+  }
+  .proxy-tooltip {
+    display: none; position: absolute; top: 100%; right: 0; margin-top: 8px;
+    background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 12px; width: 340px; z-index: 50; font-size: 12px; color: var(--text2);
+    line-height: 1.5;
+  }
+  .proxy-tooltip code {
+    background: var(--bg); padding: 2px 6px; border-radius: 4px;
+    font-family: "SF Mono", "Menlo", "Consolas", monospace; color: var(--text);
+    font-size: 11px;
+  }
+  .proxy-tooltip .copy-btn {
+    display: inline-block; margin-left: 4px; cursor: pointer; color: var(--accent);
+    font-size: 11px;
+  }
+  .btn {
+    padding: 6px 14px; border: 1px solid var(--border); border-radius: var(--radius);
+    background: var(--surface2); color: var(--text); cursor: pointer;
+    font-size: 13px; transition: background 0.15s;
+  }
+  .btn:hover { background: var(--border); }
+  .btn-accent { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .btn-accent:hover { background: var(--accent-hover); }
+  .btn-danger { border-color: var(--red); color: var(--red); }
+  .btn-danger:hover { background: var(--red); color: #fff; }
+
+  /* Main layout */
+  .main { display: flex; flex: 1; overflow: hidden; }
+
+  /* Sidebar */
+  .sidebar {
+    width: 260px; min-width: 200px; background: var(--surface);
+    border-right: 1px solid var(--border); display: flex; flex-direction: column;
+  }
+  .sidebar-header {
+    padding: 12px 16px; font-size: 12px; font-weight: 600;
+    color: var(--text2); text-transform: uppercase; letter-spacing: 0.5px;
+    border-bottom: 1px solid var(--border);
+  }
+  .server-list { flex: 1; overflow-y: auto; padding: 4px 0; }
+  .server-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 16px; cursor: pointer; transition: background 0.1s;
+    border-left: 3px solid transparent;
+  }
+  .server-item:hover { background: var(--surface2); }
+  .server-item.active { background: var(--surface2); border-left-color: var(--accent); }
+  .status-dot {
+    width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
+  }
+  .status-dot.stopped { background: var(--text2); }
+  .status-dot.starting, .status-dot.stopping, .status-dot.initializing { background: var(--yellow); }
+  .status-dot.running { background: var(--green); }
+  .status-dot.ready { background: var(--blue); }
+  .status-dot.error { background: var(--red); }
+  .server-name { font-size: 13px; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .server-tools-count {
+    font-size: 10px; color: var(--text2); background: var(--surface2);
+    padding: 1px 6px; border-radius: 8px; flex-shrink: 0;
+  }
+
+  /* Content area */
+  .content { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+  .content-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 12px 20px; border-bottom: 1px solid var(--border);
+    background: var(--surface);
+  }
+  .content-header h2 { font-size: 14px; font-weight: 600; }
+  .content-header .status-badge {
+    font-size: 12px; padding: 3px 10px; border-radius: 12px;
+    font-weight: 500;
+  }
+  .status-badge.stopped { background: var(--surface2); color: var(--text2); }
+  .status-badge.starting, .status-badge.stopping, .status-badge.initializing { background: #3d3520; color: var(--yellow); }
+  .status-badge.running { background: #1d3520; color: var(--green); }
+  .status-badge.ready { background: #1d2d40; color: var(--blue); }
+  .status-badge.error { background: #3d1d1d; color: var(--red); }
+  .server-actions { display: flex; gap: 6px; }
+
+  /* Tools panel */
+  .tools-panel {
+    padding: 8px 20px; border-bottom: 1px solid var(--border);
+    background: var(--surface); font-size: 12px;
+  }
+  .tools-panel-header {
+    color: var(--text2); font-weight: 600; margin-bottom: 4px;
+    text-transform: uppercase; font-size: 10px; letter-spacing: 0.5px;
+  }
+  .tool-tag {
+    display: inline-block; background: var(--surface2); color: var(--text);
+    padding: 2px 8px; border-radius: 4px; margin: 2px 2px; font-size: 11px;
+    font-family: "SF Mono", "Menlo", "Consolas", monospace;
+  }
+
+  /* Log viewer */
+  .log-viewer {
+    flex: 1; overflow-y: auto; padding: 12px 20px;
+    font-family: "SF Mono", "Menlo", "Consolas", monospace;
+    font-size: 12px; line-height: 1.6;
+    background: var(--bg);
+  }
+  .log-line { white-space: pre-wrap; word-break: break-all; color: var(--text2); }
+  .empty-state {
+    display: flex; align-items: center; justify-content: center;
+    height: 100%; color: var(--text2); font-size: 14px;
+  }
+
+  /* Config details */
+  .config-details {
+    padding: 12px 20px; border-bottom: 1px solid var(--border);
+    font-size: 12px; color: var(--text2); background: var(--surface);
+  }
+  .config-details code {
+    background: var(--surface2); padding: 2px 6px; border-radius: 4px;
+    font-family: "SF Mono", "Menlo", "Consolas", monospace; color: var(--text);
+  }
+
+  /* Modal */
+  .modal-overlay {
+    display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6);
+    z-index: 100; align-items: center; justify-content: center;
+  }
+  .modal-overlay.visible { display: flex; }
+  .modal {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 12px; padding: 24px; width: 480px; max-width: 90vw;
+  }
+  .modal h3 { font-size: 16px; margin-bottom: 16px; }
+  .form-group { margin-bottom: 12px; }
+  .form-group label { display: block; font-size: 12px; color: var(--text2); margin-bottom: 4px; }
+  .form-group input, .form-group select, .form-group textarea {
+    width: 100%; padding: 8px 10px; background: var(--surface2);
+    border: 1px solid var(--border); border-radius: var(--radius);
+    color: var(--text); font-size: 13px; font-family: inherit;
+  }
+  .form-group textarea { font-family: "SF Mono", "Menlo", "Consolas", monospace; height: 60px; resize: vertical; }
+  .form-group input:focus, .form-group select:focus, .form-group textarea:focus {
+    outline: none; border-color: var(--accent);
+  }
+  .modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>MCP Server Manager</h1>
+  <div class="header-actions">
+    <div class="proxy-badge" id="proxyBadge">
+      MCP Proxy Active
+      <div class="proxy-tooltip">
+        <div style="margin-bottom:8px"><strong style="color:var(--text)">MCP Proxy Endpoints</strong></div>
+        <div style="margin-bottom:4px"><strong style="color:var(--text)">Streamable HTTP (Claude Code, Copilot, Cursor):</strong></div>
+        <div style="margin-bottom:6px">
+          <code id="proxyUrl">http://127.0.0.1:17532/mcp</code>
+          <span class="copy-btn" onclick="copyUrl(event, 'http://127.0.0.1:17532/mcp')">[copy]</span>
+        </div>
+        <div style="margin-bottom:4px"><strong style="color:var(--text)">SSE (Cline, legacy clients):</strong></div>
+        <div style="margin-bottom:6px">
+          <code>http://127.0.0.1:17532/sse</code>
+          <span class="copy-btn" onclick="copyUrl(event, 'http://127.0.0.1:17532/sse')">[copy]</span>
+        </div>
+        <div style="margin-bottom:8px;color:var(--text2)">
+          Connect any MCP client to one of these endpoints. Tools from all running servers are aggregated automatically.
+        </div>
+        <div style="margin-bottom:4px"><strong style="color:var(--text)">Claude Code:</strong></div>
+        <div style="margin-bottom:4px"><code>claude mcp add mcpsm --transport http http://127.0.0.1:17532/mcp</code></div>
+        <div style="margin-bottom:4px"><strong style="color:var(--text)">Cline:</strong></div>
+        <div><code>URL: http://127.0.0.1:17532/sse</code></div>
+      </div>
+    </div>
+    <button class="btn btn-accent" onclick="openAddModal()">+ Add Server</button>
+  </div>
+</header>
+
+<div class="main">
+  <div class="sidebar">
+    <div class="sidebar-header">Servers</div>
+    <div class="server-list" id="serverList"></div>
+  </div>
+  <div class="content" id="content">
+    <div class="empty-state" id="emptyState">Select a server to view details</div>
+  </div>
+</div>
+
+<!-- Add Server Modal -->
+<div class="modal-overlay" id="addModal">
+  <div class="modal">
+    <h3>Add Server</h3>
+    <div class="form-group">
+      <label>Template (optional)</label>
+      <select id="templateSelect" onchange="applyTemplate()">
+        <option value="">Custom...</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label>Server ID</label>
+      <input id="serverId" placeholder="my-server">
+    </div>
+    <div class="form-group">
+      <label>Command</label>
+      <input id="serverCommand" placeholder="npx">
+    </div>
+    <div class="form-group">
+      <label>Arguments (one per line)</label>
+      <textarea id="serverArgs" placeholder="-y&#10;@example/server"></textarea>
+    </div>
+    <div class="form-group">
+      <label>Environment (KEY=VALUE, one per line)</label>
+      <textarea id="serverEnv" placeholder="FOO=bar"></textarea>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeAddModal()">Cancel</button>
+      <button class="btn btn-accent" onclick="submitAddServer()">Add</button>
+    </div>
+  </div>
+</div>
+
+<script>
+let servers = {};
+let selectedId = null;
+let logs = {};
+let templates = [];
+
+// --- Init ---
+async function init() {
+  await loadTemplates();
+  await refreshServers();
+  connectSSE();
+}
+
+async function loadTemplates() {
+  try {
+    const res = await fetch('/api/templates');
+    templates = await res.json();
+    const sel = document.getElementById('templateSelect');
+    templates.forEach(t => {
+      const opt = document.createElement('option');
+      opt.value = t.name;
+      opt.textContent = t.name + ' — ' + t.description;
+      sel.appendChild(opt);
+    });
+  } catch (e) { console.error('Failed to load templates', e); }
+}
+
+async function refreshServers() {
+  try {
+    const res = await fetch('/api/servers');
+    servers = await res.json();
+    renderSidebar();
+    if (selectedId) renderContent();
+  } catch (e) { console.error('Failed to load servers', e); }
+}
+
+// --- SSE ---
+function connectSSE() {
+  const es = new EventSource('/api/events');
+  es.onmessage = (e) => {
+    const evt = JSON.parse(e.data);
+    handleEvent(evt);
+  };
+  es.onerror = () => {
+    console.warn('SSE disconnected, reconnecting...');
+  };
+}
+
+function handleEvent(evt) {
+  switch (evt.type) {
+    case 'ServerStatusChanged':
+      if (servers[evt.id]) {
+        servers[evt.id].status = evt.status;
+      } else {
+        servers[evt.id] = { config: { command: '', args: [], env: {} }, status: evt.status, tools: [] };
+        refreshServers();
+        return;
+      }
+      renderSidebar();
+      if (selectedId === evt.id) renderContent();
+      break;
+    case 'McpToolsChanged':
+      if (servers[evt.id]) {
+        servers[evt.id].tools = evt.tools || [];
+      }
+      renderSidebar();
+      if (selectedId === evt.id) renderContent();
+      break;
+    case 'McpServerReady':
+      // Refresh to get latest state
+      refreshServers();
+      break;
+    case 'LogLine':
+      if (!logs[evt.id]) logs[evt.id] = [];
+      logs[evt.id].push(evt.line);
+      if (logs[evt.id].length > 500) logs[evt.id] = logs[evt.id].slice(-200);
+      if (selectedId === evt.id) appendLog(evt.line);
+      break;
+    case 'LogSnapshot':
+      logs[evt.id] = evt.lines || [];
+      if (selectedId === evt.id) renderContent();
+      break;
+    case 'ConfigLoaded':
+      refreshServers();
+      break;
+    case 'Error':
+      console.error('Backend error:', evt.message);
+      break;
+  }
+}
+
+// --- Render ---
+function statusClass(status) {
+  if (!status) return 'stopped';
+  return status.type.toLowerCase();
+}
+
+function statusLabel(status) {
+  if (!status) return 'Unknown';
+  switch (status.type) {
+    case 'Stopped': return 'Stopped';
+    case 'Starting': return 'Starting';
+    case 'Running': return 'Running (PID ' + status.pid + ')';
+    case 'Initializing': return 'Initializing (PID ' + status.pid + ')';
+    case 'Ready': return 'Ready (PID ' + status.pid + ')';
+    case 'Stopping': return 'Stopping';
+    case 'Error': return 'Error: ' + status.message;
+    default: return status.type;
+  }
+}
+
+function renderSidebar() {
+  const list = document.getElementById('serverList');
+  const ids = Object.keys(servers).sort();
+  list.innerHTML = ids.map(id => {
+    const s = servers[id];
+    const cls = statusClass(s.status);
+    const active = id === selectedId ? ' active' : '';
+    const toolCount = (s.tools && s.tools.length) || 0;
+    const toolBadge = toolCount > 0
+      ? '<span class="server-tools-count">' + toolCount + ' tools</span>'
+      : '';
+    return '<div class="server-item' + active + '" onclick="selectServer(\'' + escHtml(id) + '\')">'
+      + '<span class="status-dot ' + cls + '"></span>'
+      + '<span class="server-name">' + escHtml(id) + '</span>'
+      + toolBadge
+      + '</div>';
+  }).join('');
+}
+
+function renderContent() {
+  const el = document.getElementById('content');
+  if (!selectedId || !servers[selectedId]) {
+    el.innerHTML = '<div class="empty-state">Select a server to view details</div>';
+    return;
+  }
+  const s = servers[selectedId];
+  const cls = statusClass(s.status);
+  const isRunning = s.status && (s.status.type === 'Running' || s.status.type === 'Initializing' || s.status.type === 'Ready');
+  const cmdLine = escHtml(s.config.command + ' ' + (s.config.args || []).join(' '));
+  const logLines = (logs[selectedId] || []).map(l => '<div class="log-line">' + escHtml(l) + '</div>').join('');
+
+  // Tools panel
+  const tools = s.tools || [];
+  let toolsHtml = '';
+  if (tools.length > 0) {
+    toolsHtml = '<div class="tools-panel">'
+      + '<div class="tools-panel-header">Tools (' + tools.length + ')</div>'
+      + tools.map(t => '<span class="tool-tag">' + escHtml(t) + '</span>').join('')
+      + '</div>';
+  }
+
+  el.innerHTML = '<div class="content-header">'
+    + '<div style="display:flex;align-items:center;gap:12px">'
+    + '<h2>' + escHtml(selectedId) + '</h2>'
+    + '<span class="status-badge ' + cls + '">' + statusLabel(s.status) + '</span>'
+    + '</div>'
+    + '<div class="server-actions">'
+    + (isRunning
+        ? '<button class="btn btn-danger" onclick="stopServer(\'' + escHtml(selectedId) + '\')">Stop</button>'
+        : '<button class="btn btn-accent" onclick="startServer(\'' + escHtml(selectedId) + '\')">Start</button>')
+    + '<button class="btn btn-danger" onclick="deleteServer(\'' + escHtml(selectedId) + '\')">Delete</button>'
+    + '</div></div>'
+    + '<div class="config-details">Command: <code>' + cmdLine + '</code></div>'
+    + toolsHtml
+    + '<div class="log-viewer" id="logViewer">' + (logLines || '<div class="log-line" style="color:var(--text2)">No logs yet</div>') + '</div>';
+
+  scrollLogToBottom();
+}
+
+function appendLog(line) {
+  const viewer = document.getElementById('logViewer');
+  if (!viewer) return;
+  // Remove "No logs yet" placeholder
+  if (viewer.children.length === 1 && viewer.children[0].style.color) {
+    viewer.innerHTML = '';
+  }
+  const div = document.createElement('div');
+  div.className = 'log-line';
+  div.textContent = line;
+  viewer.appendChild(div);
+  scrollLogToBottom();
+}
+
+function scrollLogToBottom() {
+  const viewer = document.getElementById('logViewer');
+  if (viewer) viewer.scrollTop = viewer.scrollHeight;
+}
+
+// --- Actions ---
+function selectServer(id) {
+  selectedId = id;
+  renderSidebar();
+  renderContent();
+  // Request logs snapshot
+  fetch('/api/servers/' + encodeURIComponent(id) + '/logs', { method: 'GET' });
+}
+
+async function startServer(id) {
+  await fetch('/api/servers/' + encodeURIComponent(id) + '/start', { method: 'POST' });
+}
+
+async function stopServer(id) {
+  await fetch('/api/servers/' + encodeURIComponent(id) + '/stop', { method: 'POST' });
+}
+
+async function deleteServer(id) {
+  if (!confirm('Delete server "' + id + '"?')) return;
+  await fetch('/api/servers/' + encodeURIComponent(id), { method: 'DELETE' });
+  delete servers[id];
+  delete logs[id];
+  if (selectedId === id) selectedId = null;
+  renderSidebar();
+  renderContent();
+}
+
+// --- Add Server Modal ---
+function openAddModal() {
+  document.getElementById('addModal').classList.add('visible');
+  document.getElementById('serverId').value = '';
+  document.getElementById('serverCommand').value = '';
+  document.getElementById('serverArgs').value = '';
+  document.getElementById('serverEnv').value = '';
+  document.getElementById('templateSelect').value = '';
+}
+
+function closeAddModal() {
+  document.getElementById('addModal').classList.remove('visible');
+}
+
+function applyTemplate() {
+  const name = document.getElementById('templateSelect').value;
+  const t = templates.find(x => x.name === name);
+  if (!t) return;
+  document.getElementById('serverId').value = name.toLowerCase().replace(/\s+/g, '-');
+  document.getElementById('serverCommand').value = t.config.command;
+  document.getElementById('serverArgs').value = (t.config.args || []).join('\n');
+  const envLines = Object.entries(t.config.env || {}).map(([k,v]) => k + '=' + v);
+  document.getElementById('serverEnv').value = envLines.join('\n');
+}
+
+async function submitAddServer() {
+  const id = document.getElementById('serverId').value.trim();
+  const command = document.getElementById('serverCommand').value.trim();
+  if (!id || !command) { alert('ID and Command are required'); return; }
+  const args = document.getElementById('serverArgs').value.split('\n').map(s => s.trim()).filter(Boolean);
+  const envLines = document.getElementById('serverEnv').value.split('\n').map(s => s.trim()).filter(Boolean);
+  const env = {};
+  envLines.forEach(line => {
+    const eq = line.indexOf('=');
+    if (eq > 0) env[line.slice(0, eq)] = line.slice(eq + 1);
+  });
+  await fetch('/api/servers', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ id, config: { command, args, env } }),
+  });
+  closeAddModal();
+  // Give backend a moment then refresh
+  setTimeout(refreshServers, 200);
+}
+
+function copyUrl(e, url) {
+  e.stopPropagation();
+  navigator.clipboard.writeText(url);
+  const btn = e.target;
+  btn.textContent = '[copied!]';
+  setTimeout(() => { btn.textContent = '[copy]'; }, 1500);
+}
+
+function escHtml(s) {
+  const d = document.createElement('div');
+  d.textContent = s;
+  return d.innerHTML;
+}
+
+init();
+</script>
+</body>
+</html>
