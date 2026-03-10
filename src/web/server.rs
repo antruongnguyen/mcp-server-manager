@@ -26,6 +26,7 @@ pub fn build_router(state: Arc<AppState>, proxy_handler: ProxyHandler) -> Router
         .route("/api/servers/{id}/stop", post(handlers::stop_server))
         .route("/api/servers/{id}", delete(handlers::delete_server))
         .route("/api/servers/{id}/logs", get(handlers::get_logs))
+        .route("/api/servers/{id}/logs", delete(handlers::clear_logs))
         .route("/api/templates", get(handlers::list_templates))
         .route("/api/events", get(sse::event_stream))
         .with_state(state)

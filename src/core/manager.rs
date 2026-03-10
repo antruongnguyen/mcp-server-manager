@@ -60,6 +60,8 @@ struct ConnectSuccess {
     child: Option<tokio::process::Child>,
     pid: Option<u32>,
     tool_names: Vec<String>,
+    /// Peer server info from MCP handshake (protocol version, capabilities, etc.)
+    peer_info: Option<String>,
 }
 
 fn send(tx: &tokio::sync::broadcast::Sender<BackendEvent>, event: BackendEvent) {
@@ -167,6 +169,10 @@ impl ServerManager {
                 self.handle_request_logs(&id);
                 false
             }
+            AppCommand::ClearLogs { id } => {
+                self.handle_clear_logs(&id);
+                false
+            }
         }
     }
 
@@ -211,7 +217,7 @@ impl ServerManager {
                         &self.evt_tx,
                         BackendEvent::McpToolsChanged {
                             id: id.clone(),
-                            tools: success.tool_names,
+                            tools: success.tool_names.clone(),
                         },
                     );
                     send(
@@ -219,11 +225,22 @@ impl ServerManager {
                         BackendEvent::McpServerReady { id: id.clone() },
                     );
 
+                    // Inject lifecycle logs into the server's log buffer
+                    if let Some(info) = success.peer_info {
+                        self.push_log(&id, format!("[mcpsm] MCP handshake complete: {}", info));
+                    }
+                    if let Some(pid_val) = pid {
+                        self.push_log(&id, format!("[mcpsm] Server ready (PID {}), {} tools discovered", pid_val, success.tool_names.len()));
+                    } else {
+                        self.push_log(&id, format!("[mcpsm] Server ready (remote), {} tools discovered", success.tool_names.len()));
+                    }
+
                     tracing::info!("Server '{}' ready with PID {:?}", id, pid);
                 }
             }
             Err(e) => {
                 tracing::error!("[{}] MCP connection failed: {}", id, e);
+                self.push_log(&id, format!("[mcpsm] Connection failed: {}", e));
                 if let Some(server) = self.servers.get_mut(&id) {
                     server.status = ServerStatus::Error {
                         message: format!("MCP init failed: {}", e),
@@ -387,8 +404,15 @@ impl ServerManager {
         let config = self.servers.get(id).unwrap().config.clone();
 
         if config.is_stdio() {
+            let cmd_line = format!(
+                "{} {}",
+                config.command.as_deref().unwrap_or(""),
+                config.args.join(" ")
+            );
+            self.push_log(id, format!("[mcpsm] Starting server: {}", cmd_line.trim()));
             self.spawn_stdio_connect(id, &config);
         } else if config.is_remote() {
+            self.push_log(id, format!("[mcpsm] Connecting to remote server: {}", config.url.as_deref().unwrap_or("")));
             self.spawn_remote_connect(id, &config);
         } else {
             let server = self.servers.get_mut(id).unwrap();
@@ -441,6 +465,10 @@ impl ServerManager {
 
                 let pid = conn.child.as_ref().and_then(|c| process::get_pid(c));
 
+                // Get peer server info (protocol version, capabilities, etc.)
+                let peer_info = client::peer_info(&conn.client)
+                    .map(|info| format!("{:?}", info));
+
                 // List tools from the initialized client
                 let tools = client::list_tools(&conn.client).await
                     .map_err(|e| format!("Failed to list tools: {}", e))?;
@@ -451,6 +479,7 @@ impl ServerManager {
                     child: conn.child,
                     pid,
                     tool_names,
+                    peer_info,
                 })
             }
             .await;
@@ -472,6 +501,10 @@ impl ServerManager {
                 let mcp_client = client::connect_http(&url).await
                     .map_err(|e| format!("Failed to connect: {}", e))?;
 
+                // Get peer server info (protocol version, capabilities, etc.)
+                let peer_info = client::peer_info(&mcp_client)
+                    .map(|info| format!("{:?}", info));
+
                 let tools = client::list_tools(&mcp_client).await
                     .map_err(|e| format!("Failed to list tools: {}", e))?;
                 let tool_names: Vec<String> = tools.iter().map(|t| t.name.to_string()).collect();
@@ -481,6 +514,7 @@ impl ServerManager {
                     child: None,
                     pid: None,
                     tool_names,
+                    peer_info,
                 })
             }
             .await;
@@ -501,6 +535,8 @@ impl ServerManager {
         if !should_stop {
             return;
         }
+
+        self.push_log(id, "[mcpsm] Stopping server...".to_string());
 
         {
             let server = self.servers.get_mut(id).unwrap();
@@ -540,6 +576,8 @@ impl ServerManager {
             },
         );
 
+        self.push_log(id, "[mcpsm] Server stopped".to_string());
+
         tracing::info!("Server '{}' stopped", id);
     }
 
@@ -560,6 +598,33 @@ impl ServerManager {
                 },
             );
         }
+    }
+
+    fn handle_clear_logs(&mut self, id: &str) {
+        if let Some(server) = self.servers.get_mut(id) {
+            server.logs.clear();
+            send(
+                &self.evt_tx,
+                BackendEvent::LogSnapshot {
+                    id: id.to_string(),
+                    lines: Vec::new(),
+                },
+            );
+        }
+    }
+
+    /// Push a lifecycle log line into a server's log buffer and broadcast it.
+    fn push_log(&mut self, id: &str, line: String) {
+        if let Some(server) = self.servers.get_mut(id) {
+            server.logs.push(line.clone());
+        }
+        send(
+            &self.evt_tx,
+            BackendEvent::LogLine {
+                id: id.to_string(),
+                line,
+            },
+        );
     }
 
     /// Push current server state into the shared Arc<RwLock<...>> for the web layer.

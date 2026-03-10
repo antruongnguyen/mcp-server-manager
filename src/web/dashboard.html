@@ -38,26 +38,15 @@
   .proxy-badge {
     font-size: 11px; padding: 3px 10px; border-radius: 12px;
     background: #1d3520; color: var(--green); font-weight: 500;
-    cursor: pointer; position: relative;
+    display: flex; align-items: center; gap: 6px;
   }
-  .proxy-badge:hover .proxy-tooltip {
-    display: block;
+  .proxy-help-btn {
+    width: 18px; height: 18px; border-radius: 50%; border: 1px solid var(--green);
+    background: transparent; color: var(--green); font-size: 11px; font-weight: 700;
+    cursor: pointer; display: inline-flex; align-items: center; justify-content: center;
+    line-height: 1; transition: background 0.15s;
   }
-  .proxy-tooltip {
-    display: none; position: absolute; top: 100%; right: 0; margin-top: 8px;
-    background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius);
-    padding: 12px; width: 340px; z-index: 50; font-size: 12px; color: var(--text2);
-    line-height: 1.5;
-  }
-  .proxy-tooltip code {
-    background: var(--bg); padding: 2px 6px; border-radius: 4px;
-    font-family: "SF Mono", "Menlo", "Consolas", monospace; color: var(--text);
-    font-size: 11px;
-  }
-  .proxy-tooltip .copy-btn {
-    display: inline-block; margin-left: 4px; cursor: pointer; color: var(--accent);
-    font-size: 11px;
-  }
+  .proxy-help-btn:hover { background: var(--green); color: var(--bg); }
   .btn {
     padding: 6px 14px; border: 1px solid var(--border); border-radius: var(--radius);
     background: var(--surface2); color: var(--text); cursor: pointer;
@@ -191,27 +180,8 @@
   <h1>MCP Server Manager</h1>
   <div class="header-actions">
     <div class="proxy-badge" id="proxyBadge">
-      MCP Proxy Active
-      <div class="proxy-tooltip">
-        <div style="margin-bottom:8px"><strong style="color:var(--text)">MCP Proxy Endpoints</strong></div>
-        <div style="margin-bottom:4px"><strong style="color:var(--text)">Streamable HTTP (Claude Code, Copilot, Cursor):</strong></div>
-        <div style="margin-bottom:6px">
-          <code id="proxyUrl">http://127.0.0.1:17532/mcp</code>
-          <span class="copy-btn" onclick="copyUrl(event, 'http://127.0.0.1:17532/mcp')">[copy]</span>
-        </div>
-        <div style="margin-bottom:4px"><strong style="color:var(--text)">SSE (Cline, legacy clients):</strong></div>
-        <div style="margin-bottom:6px">
-          <code>http://127.0.0.1:17532/sse</code>
-          <span class="copy-btn" onclick="copyUrl(event, 'http://127.0.0.1:17532/sse')">[copy]</span>
-        </div>
-        <div style="margin-bottom:8px;color:var(--text2)">
-          Connect any MCP client to one of these endpoints. Tools from all running servers are aggregated automatically.
-        </div>
-        <div style="margin-bottom:4px"><strong style="color:var(--text)">Claude Code:</strong></div>
-        <div style="margin-bottom:4px"><code>claude mcp add mcpsm --transport http http://127.0.0.1:17532/mcp</code></div>
-        <div style="margin-bottom:4px"><strong style="color:var(--text)">Cline:</strong></div>
-        <div><code>URL: http://127.0.0.1:17532/sse</code></div>
-      </div>
+      Help
+      <button class="proxy-help-btn" onclick="openProxyHelp()" title="Connection instructions">?</button>
     </div>
     <button class="btn btn-accent" onclick="openAddModal()">+ Add Server</button>
   </div>
@@ -256,6 +226,45 @@
     <div class="modal-actions">
       <button class="btn" onclick="closeAddModal()">Cancel</button>
       <button class="btn btn-accent" onclick="submitAddServer()">Add</button>
+    </div>
+  </div>
+</div>
+
+<!-- Proxy Help Modal -->
+<div class="modal-overlay" id="proxyHelpModal">
+  <div class="modal" style="width:520px">
+    <h3>MCP Proxy Endpoint</h3>
+    <div style="font-size:13px;line-height:1.7;color:var(--text2)">
+      <p style="margin-bottom:12px">All MCP clients connect to a single endpoint. Tools from all running servers are aggregated automatically.</p>
+      <div style="margin-bottom:12px">
+        <div style="margin-bottom:4px"><strong style="color:var(--text)">Streamable HTTP</strong> <span style="font-size:11px">(supports POST, GET with SSE, and DELETE)</span></div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <code style="background:var(--bg);padding:4px 8px;border-radius:4px;font-family:'SF Mono','Menlo','Consolas',monospace;font-size:12px;color:var(--text);flex:1">http://127.0.0.1:17532/mcp</code>
+          <button class="btn" style="padding:4px 10px;font-size:11px" onclick="copyUrl(event, 'http://127.0.0.1:17532/mcp')">Copy</button>
+        </div>
+      </div>
+      <div style="border-top:1px solid var(--border);padding-top:12px;margin-bottom:12px">
+        <div style="margin-bottom:8px"><strong style="color:var(--text)">Setup Instructions</strong></div>
+        <div style="margin-bottom:6px"><strong style="color:var(--text)">Claude Code:</strong></div>
+        <div style="margin-bottom:10px">
+          <code style="background:var(--bg);padding:4px 8px;border-radius:4px;font-family:'SF Mono','Menlo','Consolas',monospace;font-size:11px;color:var(--text);display:block">claude mcp add mcpsm --transport http http://127.0.0.1:17532/mcp</code>
+        </div>
+        <div style="margin-bottom:6px"><strong style="color:var(--text)">Cline:</strong></div>
+        <div style="margin-bottom:10px">
+          <code style="background:var(--bg);padding:4px 8px;border-radius:4px;font-family:'SF Mono','Menlo','Consolas',monospace;font-size:11px;color:var(--text);display:block;white-space:pre;line-height:1.5">Type: streamableHttp
+URL:  http://127.0.0.1:17532/mcp</code>
+        </div>
+        <div style="margin-bottom:6px"><strong style="color:var(--text)">Cursor / Copilot / Other:</strong></div>
+        <div style="margin-bottom:10px">
+          <code style="background:var(--bg);padding:4px 8px;border-radius:4px;font-family:'SF Mono','Menlo','Consolas',monospace;font-size:11px;color:var(--text);display:block">URL: http://127.0.0.1:17532/mcp</code>
+        </div>
+      </div>
+      <div style="font-size:11px;color:var(--text2);padding:8px;background:var(--bg);border-radius:var(--radius)">
+        This endpoint implements the MCP Streamable HTTP transport (spec 2025-11-25 features via rmcp SDK, protocol version negotiated as 2025-06-18). Legacy SSE-only clients should also use <code style="background:var(--surface2);padding:1px 4px;border-radius:3px;font-size:11px">/mcp</code> — it handles GET requests with SSE streaming.
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeProxyHelp()">Close</button>
     </div>
   </div>
 </div>
@@ -335,7 +344,7 @@ function handleEvent(evt) {
     case 'LogLine':
       if (!logs[evt.id]) logs[evt.id] = [];
       logs[evt.id].push(evt.line);
-      if (logs[evt.id].length > 500) logs[evt.id] = logs[evt.id].slice(-200);
+      if (logs[evt.id].length > 200) logs[evt.id] = logs[evt.id].slice(-200);
       if (selectedId === evt.id) appendLog(evt.line);
       break;
     case 'LogSnapshot':
@@ -425,6 +434,10 @@ function renderContent() {
     + '</div></div>'
     + '<div class="config-details">Command: <code>' + cmdLine + '</code></div>'
     + toolsHtml
+    + '<div style="display:flex;align-items:center;justify-content:space-between;padding:6px 20px;border-bottom:1px solid var(--border);background:var(--surface)">'
+    + '<span style="font-size:10px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:0.5px">Logs</span>'
+    + '<button class="btn" style="padding:2px 10px;font-size:11px" onclick="clearLogs(\'' + escHtml(selectedId) + '\')">Clear</button>'
+    + '</div>'
     + '<div class="log-viewer" id="logViewer">' + (logLines || '<div class="log-line" style="color:var(--text2)">No logs yet</div>') + '</div>';
 
   scrollLogToBottom();
@@ -441,6 +454,10 @@ function appendLog(line) {
   div.className = 'log-line';
   div.textContent = line;
   viewer.appendChild(div);
+  // Keep DOM at max 200 lines
+  while (viewer.children.length > 200) {
+    viewer.removeChild(viewer.firstChild);
+  }
   scrollLogToBottom();
 }
 
@@ -526,8 +543,23 @@ function copyUrl(e, url) {
   e.stopPropagation();
   navigator.clipboard.writeText(url);
   const btn = e.target;
-  btn.textContent = '[copied!]';
-  setTimeout(() => { btn.textContent = '[copy]'; }, 1500);
+  const orig = btn.textContent;
+  btn.textContent = 'Copied!';
+  setTimeout(() => { btn.textContent = orig; }, 1500);
+}
+
+function openProxyHelp() {
+  document.getElementById('proxyHelpModal').classList.add('visible');
+}
+
+function closeProxyHelp() {
+  document.getElementById('proxyHelpModal').classList.remove('visible');
+}
+
+async function clearLogs(id) {
+  logs[id] = [];
+  await fetch('/api/servers/' + encodeURIComponent(id) + '/logs', { method: 'DELETE' });
+  renderContent();
 }
 
 function escHtml(s) {

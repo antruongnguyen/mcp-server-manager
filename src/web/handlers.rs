@@ -75,6 +75,14 @@ pub async fn get_logs(
     StatusCode::ACCEPTED
 }
 
+pub async fn clear_logs(
+    State(state): State<Arc<AppState>>,
+    Path(id): Path<String>,
+) -> StatusCode {
+    let _ = state.cmd_tx.send(AppCommand::ClearLogs { id });
+    StatusCode::ACCEPTED
+}
+
 pub async fn list_templates() -> Json<serde_json::Value> {
     let templates = builtin_templates();
     let list: Vec<serde_json::Value> = templates

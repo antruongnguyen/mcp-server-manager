@@ -14,6 +14,7 @@ pub enum AppCommand {
     LoadConfig,
     SaveConfig,
     RequestLogs { id: String },
+    ClearLogs { id: String },
     Shutdown,
 }
 

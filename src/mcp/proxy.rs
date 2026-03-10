@@ -3,11 +3,11 @@ use std::sync::Arc;
 
 use rmcp::handler::server::ServerHandler;
 use rmcp::model::{
-    CallToolRequestParam, CallToolResult, Content, Implementation,
-    ListToolsResult, PaginatedRequestParam, ServerCapabilities, ServerInfo, Tool,
+    CallToolRequestParams, CallToolResult, Content, Implementation,
+    ListToolsResult, PaginatedRequestParams, ServerCapabilities, ServerInfo, Tool,
 };
 use rmcp::service::RequestContext;
-use rmcp::{Error as McpError, RoleServer};
+use rmcp::{ErrorData as McpError, RoleServer};
 
 use crate::core::manager::{SharedMcpClients, SharedServers};
 use crate::core::server::ServerStatus;
@@ -33,21 +33,17 @@ impl ProxyHandler {
 
 impl ServerHandler for ProxyHandler {
     fn get_info(&self) -> ServerInfo {
-        ServerInfo {
-            capabilities: ServerCapabilities::builder()
+        ServerInfo::new(
+            ServerCapabilities::builder()
                 .enable_tools()
                 .build(),
-            server_info: Implementation {
-                name: "mcpsm".into(),
-                version: env!("CARGO_PKG_VERSION").into(),
-            },
-            ..Default::default()
-        }
+        )
+        .with_server_info(Implementation::new("mcpsm", env!("CARGO_PKG_VERSION")))
     }
 
     async fn list_tools(
         &self,
-        _request: Option<PaginatedRequestParam>,
+        _request: Option<PaginatedRequestParams>,
         _context: RequestContext<RoleServer>,
     ) -> Result<ListToolsResult, McpError> {
         let clients = self.clients.read().await;
@@ -75,12 +71,15 @@ impl ServerHandler for ProxyHandler {
                         let description: Option<Cow<'static, str>> = tool.description.map(|d| {
                             format!("[{}] {}", server_id, d).into()
                         });
-                        all_tools.push(Tool {
-                            name: namespaced_name,
+                        let mut namespaced_tool = Tool::new_with_raw(
+                            namespaced_name,
                             description,
-                            input_schema: tool.input_schema,
-                            annotations: tool.annotations,
-                        });
+                            tool.input_schema,
+                        );
+                        if let Some(annotations) = tool.annotations {
+                            namespaced_tool = namespaced_tool.with_annotations(annotations);
+                        }
+                        all_tools.push(namespaced_tool);
                     }
                 }
                 Err(e) => {
@@ -92,12 +91,13 @@ impl ServerHandler for ProxyHandler {
         Ok(ListToolsResult {
             tools: all_tools,
             next_cursor: None,
+            meta: None,
         })
     }
 
     async fn call_tool(
         &self,
-        request: CallToolRequestParam,
+        request: CallToolRequestParams,
         _context: RequestContext<RoleServer>,
     ) -> Result<CallToolResult, McpError> {
         let name_str: &str = &request.name;
@@ -131,18 +131,15 @@ impl ServerHandler for ProxyHandler {
         };
 
         // Build the child call params (without namespace prefix)
-        let child_params = CallToolRequestParam {
-            name: tool_name.into(),
-            arguments: request.arguments,
-        };
+        let mut child_params = CallToolRequestParams::new(tool_name);
+        if let Some(args) = request.arguments {
+            child_params = child_params.with_arguments(args);
+        }
 
         match client.call_tool(child_params).await {
             Ok(result) => Ok(result),
             Err(e) => {
-                Ok(CallToolResult {
-                    content: vec![Content::text(format!("Error calling tool: {}", e))],
-                    is_error: Some(true),
-                })
+                Ok(CallToolResult::error(vec![Content::text(format!("Error calling tool: {}", e))]))
             }
         }
     }

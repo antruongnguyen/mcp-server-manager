@@ -1,6 +1,6 @@
 use std::process::Stdio;
 
-use rmcp::model::{CallToolRequestParam, CallToolResult, ClientInfo, Implementation, Tool};
+use rmcp::model::{CallToolRequestParams, CallToolResult, ClientInfo, Implementation, ServerInfo, Tool};
 use rmcp::service::RunningService;
 use rmcp::{RoleClient, ServiceExt};
 
@@ -47,14 +47,10 @@ pub async fn connect_stdio(config: &ServerConfig) -> anyhow::Result<StdioConnect
 
     // (ChildStdout, ChildStdin) implements IntoTransport<RoleClient, ...>
     // rmcp's serve() performs the MCP initialize handshake automatically
-    let client_info = ClientInfo {
-        capabilities: Default::default(),
-        client_info: Implementation {
-            name: "mcpsm".into(),
-            version: env!("CARGO_PKG_VERSION").into(),
-        },
-        ..Default::default()
-    };
+    let client_info = ClientInfo::new(
+        Default::default(),
+        Implementation::new("mcpsm", env!("CARGO_PKG_VERSION")),
+    );
 
     let client = client_info.serve((stdout, stdin)).await?;
 
@@ -67,18 +63,14 @@ pub async fn connect_stdio(config: &ServerConfig) -> anyhow::Result<StdioConnect
 
 /// Connect to a remote MCP server via Streamable HTTP.
 pub async fn connect_http(url: &str) -> anyhow::Result<McpClient> {
-    use rmcp::transport::streamable_http_client::StreamableHttpClientTransport;
+    use rmcp::transport::StreamableHttpClientTransport;
 
-    let transport = StreamableHttpClientTransport::<reqwest::Client>::from_uri(url);
+    let transport = StreamableHttpClientTransport::from_uri(url);
 
-    let client_info = ClientInfo {
-        capabilities: Default::default(),
-        client_info: Implementation {
-            name: "mcpsm".into(),
-            version: env!("CARGO_PKG_VERSION").into(),
-        },
-        ..Default::default()
-    };
+    let client_info = ClientInfo::new(
+        Default::default(),
+        Implementation::new("mcpsm", env!("CARGO_PKG_VERSION")),
+    );
 
     let client = client_info.serve(transport).await?;
     Ok(client)
@@ -90,6 +82,11 @@ pub async fn list_tools(client: &McpClient) -> anyhow::Result<Vec<Tool>> {
     Ok(tools)
 }
 
+/// Get the peer server info (set after MCP handshake).
+pub fn peer_info(client: &McpClient) -> Option<ServerInfo> {
+    client.peer_info().cloned()
+}
+
 /// Call a tool on a connected MCP client.
 #[allow(dead_code)]
 pub async fn call_tool(
@@ -97,10 +94,10 @@ pub async fn call_tool(
     name: &str,
     arguments: Option<serde_json::Value>,
 ) -> anyhow::Result<CallToolResult> {
-    let params = CallToolRequestParam {
-        name: name.to_string().into(),
-        arguments: arguments.and_then(|v| v.as_object().cloned()),
-    };
+    let mut params = CallToolRequestParams::new(name.to_string());
+    if let Some(args) = arguments.and_then(|v| v.as_object().cloned()) {
+        params = params.with_arguments(args);
+    }
     let result = client.call_tool(params).await?;
     Ok(result)
 }
