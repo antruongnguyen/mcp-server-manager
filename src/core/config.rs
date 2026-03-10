@@ -176,6 +176,7 @@ mod tests {
                 args: vec!["server.js".into()],
                 env: HashMap::new(),
                 url: None,
+                auth_header: None,
                 enabled: true,
             },
         ));
@@ -202,6 +203,7 @@ mod tests {
                 args: vec![],
                 env: HashMap::new(),
                 url: None,
+                auth_header: None,
                 enabled: true,
             },
         )];

@@ -16,6 +16,8 @@ pub struct ServerConfig {
     pub env: HashMap<String, String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub url: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub auth_header: Option<String>,
     #[serde(default = "default_true")]
     pub enabled: bool,
 }

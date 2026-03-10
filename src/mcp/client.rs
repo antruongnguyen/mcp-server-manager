@@ -62,10 +62,18 @@ pub async fn connect_stdio(config: &ServerConfig) -> anyhow::Result<StdioConnect
 }
 
 /// Connect to a remote MCP server via Streamable HTTP.
-pub async fn connect_http(url: &str) -> anyhow::Result<McpClient> {
-    use rmcp::transport::StreamableHttpClientTransport;
+pub async fn connect_http(url: &str, auth_header: Option<&str>) -> anyhow::Result<McpClient> {
+    use rmcp::transport::streamable_http_client::{
+        StreamableHttpClientTransport, StreamableHttpClientTransportConfig,
+    };
 
-    let transport = StreamableHttpClientTransport::from_uri(url);
+    let config = StreamableHttpClientTransportConfig::with_uri(url);
+    let config = if let Some(ah) = auth_header {
+        config.auth_header(ah)
+    } else {
+        config
+    };
+    let transport = StreamableHttpClientTransport::from_config(config);
 
     let client_info = ClientInfo::new(
         Default::default(),

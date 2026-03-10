@@ -451,7 +451,8 @@ impl ServerManager {
                 let config_changed = existing.config.command != new_config.command
                     || existing.config.args != new_config.args
                     || existing.config.env != new_config.env
-                    || existing.config.url != new_config.url;
+                    || existing.config.url != new_config.url
+                    || existing.config.auth_header != new_config.auth_header;
                 let enabled_changed = existing.config.enabled != new_config.enabled;
                 let was_running = existing.status.is_running();
 
@@ -533,10 +534,25 @@ impl ServerManager {
     }
 
     async fn handle_update_server(&mut self, id: String, config: ServerConfig) {
+        let was_running = self
+            .servers
+            .get(&id)
+            .is_some_and(|s| s.status.is_running());
+
+        // Stop the server if it was running
+        if was_running {
+            self.handle_stop_server(&id).await;
+        }
+
         if let Some(server) = self.servers.get_mut(&id) {
-            server.config = config;
-            self.sync_shared_state().await;
-            self.handle_save_config();
+            server.config = config.clone();
+        }
+        self.sync_shared_state().await;
+        self.handle_save_config();
+
+        // Restart if it was previously running
+        if was_running && config.enabled {
+            self.handle_start_server(&id).await;
         }
     }
 
@@ -712,12 +728,13 @@ impl ServerManager {
 
     fn spawn_remote_connect(&self, id: &str, config: &ServerConfig) {
         let url = config.url.clone().unwrap();
+        let auth_header = config.auth_header.clone();
         let id_owned = id.to_string();
         let connect_result_tx = self.connect_result_tx.clone();
 
         tokio::spawn(async move {
             let result = async {
-                let mcp_client = client::connect_http(&url)
+                let mcp_client = client::connect_http(&url, auth_header.as_deref())
                     .await
                     .map_err(|e| format!("Failed to connect: {}", e))?;
 

@@ -24,7 +24,10 @@ pub fn build_router(state: Arc<AppState>, proxy_handler: ProxyHandler) -> Router
         .route("/api/servers", post(handlers::add_server))
         .route("/api/servers/{id}/start", post(handlers::start_server))
         .route("/api/servers/{id}/stop", post(handlers::stop_server))
-        .route("/api/servers/{id}", delete(handlers::delete_server))
+        .route(
+            "/api/servers/{id}",
+            delete(handlers::delete_server).put(handlers::update_server),
+        )
         .route("/api/servers/{id}/logs", get(handlers::get_logs))
         .route("/api/servers/{id}/logs", delete(handlers::clear_logs))
         .route(
@@ -46,5 +49,12 @@ pub async fn serve(state: Arc<AppState>, proxy_handler: ProxyHandler, port: u16)
         .unwrap_or_else(|_| panic!("Failed to bind web server to {}", addr));
     tracing::info!("Web dashboard at http://{}", addr);
     tracing::info!("MCP proxy (Streamable HTTP) at http://{}/mcp", addr);
+
+    // Auto-open dashboard in the default browser
+    let url = format!("http://{}", addr);
+    tokio::task::spawn_blocking(move || {
+        let _ = open::that(&url);
+    });
+
     axum::serve(listener, app).await.expect("Web server error");
 }

@@ -67,6 +67,23 @@ pub async fn delete_server(
     StatusCode::ACCEPTED
 }
 
+#[derive(serde::Deserialize)]
+pub struct UpdateServerRequest {
+    pub config: ServerConfig,
+}
+
+pub async fn update_server(
+    State(state): State<Arc<AppState>>,
+    Path(id): Path<String>,
+    Json(body): Json<UpdateServerRequest>,
+) -> StatusCode {
+    let _ = state.cmd_tx.send(AppCommand::UpdateServer {
+        id,
+        config: body.config,
+    });
+    StatusCode::ACCEPTED
+}
+
 pub async fn get_logs(
     State(state): State<Arc<AppState>>,
     Path(id): Path<String>,

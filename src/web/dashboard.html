@@ -58,6 +58,20 @@
   .btn-danger { border-color: var(--red); color: var(--red); }
   .btn-danger:hover { background: var(--red); color: #fff; }
 
+  /* Icon system */
+  .icon { width: 14px; height: 14px; display: inline-block; vertical-align: middle; }
+  .icon-btn {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 28px; height: 28px; border-radius: var(--radius);
+    border: 1px solid var(--border); background: var(--surface2);
+    color: var(--text2); cursor: pointer; transition: all 0.15s; padding: 0;
+  }
+  .icon-btn:hover { background: var(--border); color: var(--text); }
+  .icon-btn.danger { border-color: var(--red); color: var(--red); }
+  .icon-btn.danger:hover { background: var(--red); color: #fff; }
+  .icon-btn.accent { border-color: var(--accent); color: var(--accent); }
+  .icon-btn.accent:hover { background: var(--accent); color: #fff; }
+
   /* Main layout */
   .main { display: flex; flex: 1; overflow: hidden; }
 
@@ -70,6 +84,7 @@
     padding: 12px 16px; font-size: 12px; font-weight: 600;
     color: var(--text2); text-transform: uppercase; letter-spacing: 0.5px;
     border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
   }
   .server-list { flex: 1; overflow-y: auto; padding: 4px 0; }
   .server-item {
@@ -115,53 +130,75 @@
 
   /* Enable toggle switch */
   .toggle-switch {
-    position: relative; display: inline-block; width: 36px; height: 20px;
+    position: relative; display: inline-flex; align-items: center; gap: 6px; cursor: pointer;
   }
-  .toggle-switch input { opacity: 0; width: 0; height: 0; }
+  .toggle-switch input { opacity: 0; width: 0; height: 0; position: absolute; }
   .toggle-slider {
-    position: absolute; cursor: pointer; inset: 0;
+    position: relative; display: inline-block; width: 36px; height: 20px;
     background: var(--surface2); border: 1px solid var(--border);
-    border-radius: 20px; transition: 0.2s;
+    border-radius: 20px; transition: 0.2s; flex-shrink: 0;
   }
   .toggle-slider:before {
     content: ''; position: absolute; height: 14px; width: 14px;
-    left: 2px; bottom: 2px; background: var(--text2);
+    left: 2px; top: 2px; background: var(--text2);
     border-radius: 50%; transition: 0.2s;
   }
   .toggle-switch input:checked + .toggle-slider { background: var(--accent); border-color: var(--accent); }
   .toggle-switch input:checked + .toggle-slider:before { transform: translateX(16px); background: #fff; }
+  .toggle-label { font-size: 11px; color: var(--text2); user-select: none; }
 
-  /* MCP Server Info panel */
-  .mcp-info-panel {
+  /* Config details */
+  .config-details {
     padding: 10px 20px; border-bottom: 1px solid var(--border);
-    background: var(--surface); font-size: 12px;
+    font-size: 12px; color: var(--text2); background: var(--surface);
   }
-  .mcp-info-panel-header {
-    color: var(--text2); font-weight: 600; margin-bottom: 6px;
-    text-transform: uppercase; font-size: 10px; letter-spacing: 0.5px;
+  .config-details code {
+    background: var(--surface2); padding: 2px 6px; border-radius: 4px;
+    font-family: "SF Mono", "Menlo", "Consolas", monospace; color: var(--text);
   }
-  .mcp-info-row { display: flex; gap: 8px; align-items: center; margin-bottom: 4px; flex-wrap: wrap; }
-  .mcp-info-label { color: var(--text2); min-width: 80px; }
-  .mcp-info-value { color: var(--text); font-family: "SF Mono", "Menlo", "Consolas", monospace; }
-  .cap-badge {
-    display: inline-block; font-size: 10px; padding: 1px 6px; border-radius: 4px;
-    font-weight: 500; margin: 1px 2px;
+  .config-row {
+    display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
   }
-  .cap-badge.active { background: #1d2d40; color: var(--blue); }
-  .cap-badge.inactive { background: var(--surface2); color: var(--text2); opacity: 0.5; }
-  .instructions-block {
-    margin-top: 6px; padding: 6px 10px; background: var(--bg); border-radius: var(--radius);
-    font-size: 11px; color: var(--text2); line-height: 1.5; white-space: pre-wrap;
+  .config-row + .config-row { margin-top: 6px; }
+  .config-label {
+    font-size: 10px; font-weight: 600; color: var(--text2);
+    text-transform: uppercase; letter-spacing: 0.3px; min-width: 90px;
+  }
+  .config-value {
+    font-family: "SF Mono", "Menlo", "Consolas", monospace;
+    color: var(--text); font-size: 12px;
+  }
+  .config-sep {
+    width: 100%; height: 1px; background: var(--border); margin: 8px 0;
+  }
+  .transport-badge {
+    font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;
+    padding: 2px 6px; border-radius: 3px;
+    background: var(--surface2); color: var(--text2);
+  }
+  .transport-badge.stdio { background: #1d3520; color: var(--green); }
+  .transport-badge.http { background: #1d2d40; color: var(--blue); }
+
+  /* Tabs */
+  .tab-bar {
+    display: flex; gap: 0; border-bottom: 1px solid var(--border);
+    background: var(--surface); padding: 0 20px;
+  }
+  .tab-btn {
+    padding: 8px 14px; font-size: 12px; color: var(--text2);
+    background: none; border: none; border-bottom: 2px solid transparent;
+    cursor: pointer; transition: all 0.15s; font-family: inherit;
+  }
+  .tab-btn:hover { color: var(--text); }
+  .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+  .tab-content {
+    flex: 1; overflow-y: auto; background: var(--surface);
+    border-bottom: 1px solid var(--border); min-height: 0;
   }
 
-  /* Tools panel */
+  /* Tools panel (used inside tab) */
   .tools-panel {
-    padding: 8px 20px; border-bottom: 1px solid var(--border);
-    background: var(--surface); font-size: 12px;
-  }
-  .tools-panel-header {
-    color: var(--text2); font-weight: 600; margin-bottom: 4px;
-    text-transform: uppercase; font-size: 10px; letter-spacing: 0.5px;
+    padding: 8px 20px; font-size: 12px;
   }
   .tool-item {
     padding: 6px 0; border-bottom: 1px solid var(--border);
@@ -182,33 +219,37 @@
   .annot-badge.destructive { background: #3d1d1d; color: var(--red); }
   .annot-badge.idempotent { background: #1d2d40; color: var(--blue); }
   .annot-badge.openworld { background: #3d3520; color: var(--yellow); }
-  .tool-tag {
-    display: inline-block; background: var(--surface2); color: var(--text);
-    padding: 2px 8px; border-radius: 4px; margin: 2px 2px; font-size: 11px;
-    font-family: "SF Mono", "Menlo", "Consolas", monospace;
+
+  /* Tab placeholder */
+  .tab-placeholder {
+    padding: 24px 20px; text-align: center; color: var(--text2); font-size: 12px;
   }
 
   /* Log viewer */
+  .log-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 6px 20px; border-bottom: 1px solid var(--border);
+    background: var(--surface); cursor: pointer; user-select: none;
+  }
+  .log-header:hover { background: var(--surface2); }
+  .log-header-left { display: flex; align-items: center; gap: 6px; }
+  .log-header-label {
+    font-size: 10px; font-weight: 600; color: var(--text2);
+    text-transform: uppercase; letter-spacing: 0.5px;
+  }
   .log-viewer {
-    flex: 1; overflow-y: auto; padding: 12px 20px;
+    overflow-y: auto; padding: 12px 20px;
     font-family: "SF Mono", "Menlo", "Consolas", monospace;
     font-size: 12px; line-height: 1.6;
     background: var(--bg);
   }
+  .log-viewer.expanded { flex: 2; }
+  .log-viewer.collapsed { display: none; }
   .log-line { white-space: pre-wrap; word-break: break-all; color: var(--text2); }
+  .content-body { flex: 1; display: flex; flex-direction: column; overflow: hidden; min-height: 0; }
   .empty-state {
     display: flex; align-items: center; justify-content: center;
     height: 100%; color: var(--text2); font-size: 14px;
-  }
-
-  /* Config details */
-  .config-details {
-    padding: 12px 20px; border-bottom: 1px solid var(--border);
-    font-size: 12px; color: var(--text2); background: var(--surface);
-  }
-  .config-details code {
-    background: var(--surface2); padding: 2px 6px; border-radius: 4px;
-    font-family: "SF Mono", "Menlo", "Consolas", monospace; color: var(--text);
   }
 
   /* Modal */
@@ -221,6 +262,7 @@
     background: var(--surface); border: 1px solid var(--border);
     border-radius: 12px; padding: 24px; width: 480px; max-width: 90vw;
   }
+  .modal.wide { width: 600px; }
   .modal h3 { font-size: 16px; margin-bottom: 16px; }
   .form-group { margin-bottom: 12px; }
   .form-group label { display: block; font-size: 12px; color: var(--text2); margin-bottom: 4px; }
@@ -233,10 +275,58 @@
   .form-group input:focus, .form-group select:focus, .form-group textarea:focus {
     outline: none; border-color: var(--accent);
   }
+  .form-group input:disabled { opacity: 0.5; cursor: not-allowed; }
   .modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px; }
+
+  /* Transport toggle */
+  .transport-toggle {
+    display: flex; gap: 0; border: 1px solid var(--border); border-radius: var(--radius);
+    overflow: hidden; margin-bottom: 12px;
+  }
+  .transport-toggle button {
+    flex: 1; padding: 6px 16px; font-size: 12px; font-weight: 500;
+    background: var(--surface2); color: var(--text2); border: none;
+    cursor: pointer; transition: all 0.15s; font-family: inherit;
+  }
+  .transport-toggle button:not(:last-child) { border-right: 1px solid var(--border); }
+  .transport-toggle button.active { background: var(--accent); color: #fff; }
+  .transport-toggle button:hover:not(.active) { background: var(--border); }
+
+  /* Confirm modal */
+  .confirm-modal .modal { width: 400px; }
+  .confirm-message { font-size: 13px; color: var(--text2); line-height: 1.6; margin-bottom: 16px; }
 </style>
 </head>
 <body>
+
+<!-- SVG Icon Definitions -->
+<svg xmlns="http://www.w3.org/2000/svg" style="display:none">
+  <symbol id="icon-plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+  </symbol>
+  <symbol id="icon-trash" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
+  </symbol>
+  <symbol id="icon-square" viewBox="0 0 24 24" fill="currentColor" stroke="none">
+    <rect x="6" y="6" width="12" height="12" rx="2"/>
+  </symbol>
+  <symbol id="icon-pencil" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M17 3a2.83 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/>
+  </symbol>
+  <symbol id="icon-chevron-up" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <polyline points="18 15 12 9 6 15"/>
+  </symbol>
+  <symbol id="icon-chevron-down" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <polyline points="6 9 12 15 18 9"/>
+  </symbol>
+  <symbol id="icon-x" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+  </symbol>
+  <symbol id="icon-play" viewBox="0 0 24 24" fill="currentColor" stroke="none">
+    <polygon points="6,4 20,12 6,20"/>
+  </symbol>
+</svg>
+
 <header>
   <h1>MCP Server Manager</h1>
   <div class="header-actions">
@@ -244,13 +334,17 @@
       Help
       <button class="proxy-help-btn" onclick="openProxyHelp()" title="Connection instructions">?</button>
     </div>
-    <button class="btn btn-accent" onclick="openAddModal()">+ Add Server</button>
   </div>
 </header>
 
 <div class="main">
   <div class="sidebar">
-    <div class="sidebar-header">Servers</div>
+    <div class="sidebar-header">
+      <span>Servers</span>
+      <button class="icon-btn accent" onclick="openServerModal()" title="Add Server">
+        <svg class="icon"><use href="#icon-plus"/></svg>
+      </button>
+    </div>
     <div class="server-list" id="serverList"></div>
   </div>
   <div class="content" id="content">
@@ -258,11 +352,11 @@
   </div>
 </div>
 
-<!-- Add Server Modal -->
-<div class="modal-overlay" id="addModal">
-  <div class="modal">
-    <h3>Add Server</h3>
-    <div class="form-group">
+<!-- Add/Edit Server Modal -->
+<div class="modal-overlay" id="serverModal">
+  <div class="modal wide">
+    <h3 id="serverModalTitle">Add Server</h3>
+    <div id="templateGroup" class="form-group">
       <label>Template (optional)</label>
       <select id="templateSelect" onchange="applyTemplate()">
         <option value="">Custom...</option>
@@ -272,21 +366,49 @@
       <label>Server ID</label>
       <input id="serverId" placeholder="my-server">
     </div>
-    <div class="form-group">
-      <label>Command</label>
-      <input id="serverCommand" placeholder="npx">
+    <div class="transport-toggle" id="transportToggle">
+      <button onclick="setTransport('stdio')" id="transportStdio" class="active">STDIO</button>
+      <button onclick="setTransport('http')" id="transportHttp">HTTP</button>
     </div>
-    <div class="form-group">
-      <label>Arguments (one per line)</label>
-      <textarea id="serverArgs" placeholder="-y&#10;@example/server"></textarea>
+    <div id="stdioFields">
+      <div class="form-group">
+        <label>Command</label>
+        <input id="serverCommand" placeholder="npx">
+      </div>
+      <div class="form-group">
+        <label>Arguments (one per line)</label>
+        <textarea id="serverArgs" placeholder="-y&#10;@example/server"></textarea>
+      </div>
+      <div class="form-group">
+        <label>Environment (KEY=VALUE, one per line)</label>
+        <textarea id="serverEnv" placeholder="FOO=bar"></textarea>
+      </div>
     </div>
-    <div class="form-group">
-      <label>Environment (KEY=VALUE, one per line)</label>
-      <textarea id="serverEnv" placeholder="FOO=bar"></textarea>
+    <div id="httpFields" style="display:none">
+      <div class="form-group">
+        <label>URL</label>
+        <input id="serverUrl" placeholder="http://localhost:8080/mcp">
+      </div>
+      <div class="form-group">
+        <label>Authorization Header (Bearer token, optional)</label>
+        <input id="serverAuthHeader" placeholder="your-token-here">
+      </div>
     </div>
     <div class="modal-actions">
-      <button class="btn" onclick="closeAddModal()">Cancel</button>
-      <button class="btn btn-accent" onclick="submitAddServer()">Add</button>
+      <button class="btn" onclick="closeServerModal()">Cancel</button>
+      <button class="btn btn-accent" onclick="submitServerModal()" id="serverModalSubmit">Add</button>
+    </div>
+  </div>
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div class="modal-overlay confirm-modal" id="confirmModal">
+  <div class="modal">
+    <h3 id="confirmTitle">Confirm Delete</h3>
+    <div class="confirm-message" id="confirmMessage"></div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeConfirmModal()">Cancel</button>
+      <button class="btn btn-danger" id="confirmAction" onclick="executeConfirmedDelete()">Delete</button>
     </div>
   </div>
 </div>
@@ -334,6 +456,11 @@ let servers = {};
 let selectedId = null;
 let logs = {};
 let templates = [];
+let editingServerId = null;
+let currentTransport = 'stdio';
+let logExpanded = false;
+let activeTab = 'tools';
+let pendingDeleteId = null;
 
 function mcpUrl() { return window.location.origin + '/mcp'; }
 
@@ -413,7 +540,6 @@ function handleEvent(evt) {
       if (selectedId === evt.id) renderContent();
       break;
     case 'McpServerReady':
-      // Refresh to get latest state (including peer_info)
       refreshServers();
       break;
     case 'LogLine':
@@ -484,101 +610,174 @@ function renderContent() {
   const s = servers[selectedId];
   const cls = statusClass(s.status);
   const isRunning = s.status && (s.status.type === 'Running' || s.status.type === 'Initializing' || s.status.type === 'Ready');
-  const logLines = (logs[selectedId] || []).map(l => '<div class="log-line">' + escHtml(l) + '</div>').join('');
+  const tools = s.tools || [];
+  const hasPeer = !!s.peer_info;
 
-  // Config details
-  let configHtml = '';
+  // Config details — merged with MCP peer info
+  let configHtml = '<div class="config-details">';
+
+  // Transport row
+  configHtml += '<div class="config-row">';
   if (s.config.command) {
     const cmdLine = escHtml(s.config.command + ' ' + (s.config.args || []).join(' '));
-    configHtml = '<div class="config-details">Command: <code>' + cmdLine + '</code></div>';
+    const envCount = Object.keys(s.config.env || {}).length;
+    configHtml += '<span class="transport-badge stdio">STDIO</span> '
+      + '<code>' + cmdLine + '</code>';
+    if (envCount > 0) configHtml += '<span style="font-size:11px">' + envCount + ' env var' + (envCount > 1 ? 's' : '') + '</span>';
   } else if (s.config.url) {
-    configHtml = '<div class="config-details">URL: <code>' + escHtml(s.config.url) + '</code></div>';
+    configHtml += '<span class="transport-badge http">HTTP</span> '
+      + '<code>' + escHtml(s.config.url) + '</code>';
+    if (s.config.auth_header) configHtml += '<span style="font-size:11px">with auth</span>';
   }
+  configHtml += '</div>';
 
-  // MCP Server info panel
-  let mcpInfoHtml = '';
-  if (s.peer_info) {
+  // MCP peer info rows (merged into config-details)
+  if (hasPeer) {
     const p = s.peer_info;
-    mcpInfoHtml = '<div class="mcp-info-panel">'
-      + '<div class="mcp-info-panel-header">MCP Server Info</div>'
-      + '<div class="mcp-info-row"><span class="mcp-info-label">Server:</span><span class="mcp-info-value">' + escHtml(p.name) + ' v' + escHtml(p.version) + '</span></div>'
-      + '<div class="mcp-info-row"><span class="mcp-info-label">Protocol:</span><span class="mcp-info-value">' + escHtml(p.protocol_version) + '</span></div>'
-      + '<div class="mcp-info-row"><span class="mcp-info-label">Capabilities:</span>'
-      + capBadge('Tools', p.capabilities.tools) + capBadge('Resources', p.capabilities.resources)
-      + capBadge('Prompts', p.capabilities.prompts) + capBadge('Logging', p.capabilities.logging)
+    configHtml += '<div class="config-sep"></div>';
+    configHtml += '<div class="config-row">'
+      + '<span class="config-label">Server</span>'
+      + '<span class="config-value">' + escHtml(p.name) + ' v' + escHtml(p.version) + '</span>'
+      + '</div>';
+    if (p.title) {
+      configHtml += '<div class="config-row">'
+        + '<span class="config-label">Title</span>'
+        + '<span style="color:var(--text)">' + escHtml(p.title) + '</span>'
+        + '</div>';
+    }
+    if (p.description) {
+      configHtml += '<div class="config-row">'
+        + '<span class="config-label">About</span>'
+        + '<span style="color:var(--text)">' + escHtml(p.description) + '</span>'
+        + '</div>';
+    }
+    configHtml += '<div class="config-row">'
+      + '<span class="config-label">Protocol</span>'
+      + '<span class="config-value">' + escHtml(p.protocol_version) + '</span>'
       + '</div>';
     if (p.instructions) {
-      mcpInfoHtml += '<div class="instructions-block">' + escHtml(p.instructions) + '</div>';
+      configHtml += '<div class="config-row" style="align-items:flex-start">'
+        + '<span class="config-label">Instructions</span>'
+        + '<span class="config-value" style="white-space:pre-wrap">' + escHtml(p.instructions) + '</span>'
+        + '</div>';
     }
-    mcpInfoHtml += '</div>';
   }
 
-  // Tools panel
-  const tools = s.tools || [];
-  let toolsHtml = '';
-  if (tools.length > 0) {
-    const toolItems = tools.map(t => {
-      if (typeof t === 'string') {
-        return '<span class="tool-tag">' + escHtml(t) + '</span>';
-      }
-      let html = '<div class="tool-item"><div><span class="tool-name">' + escHtml(t.name) + '</span>';
-      if (t.title) html += '<span class="tool-title">' + escHtml(t.title) + '</span>';
-      html += '</div>';
-      if (t.description) html += '<div class="tool-desc">' + escHtml(t.description) + '</div>';
-      if (t.annotations) {
-        html += '<div class="tool-annotations">';
-        if (t.annotations.read_only_hint === true) html += '<span class="annot-badge readonly">read-only</span>';
-        if (t.annotations.destructive_hint === true) html += '<span class="annot-badge destructive">destructive</span>';
-        if (t.annotations.idempotent_hint === true) html += '<span class="annot-badge idempotent">idempotent</span>';
-        if (t.annotations.open_world_hint === true) html += '<span class="annot-badge openworld">open-world</span>';
-        html += '</div>';
-      }
-      html += '</div>';
-      return html;
-    }).join('');
-    toolsHtml = '<div class="tools-panel">'
-      + '<div class="tools-panel-header">Tools (' + tools.length + ')</div>'
-      + toolItems
-      + '</div>';
-  }
+  configHtml += '</div>';
 
-  // Enable toggle
+  // Tabs
+  const caps = hasPeer ? s.peer_info.capabilities : null;
+  let tabs = [];
+  tabs.push({ key: 'tools', label: 'Tools (' + tools.length + ')' });
+  if (caps && caps.resources) tabs.push({ key: 'resources', label: 'Resources' });
+  if (caps && caps.prompts) tabs.push({ key: 'prompts', label: 'Prompts' });
+  if (caps && caps.logging) tabs.push({ key: 'logging', label: 'Logging' });
+
+  if (!tabs.find(t => t.key === activeTab)) activeTab = 'tools';
+
+  let tabBarHtml = '<div class="tab-bar">';
+  tabs.forEach(t => {
+    const act = t.key === activeTab ? ' active' : '';
+    tabBarHtml += '<button class="tab-btn' + act + '" onclick="switchTab(\'' + t.key + '\')">' + t.label + '</button>';
+  });
+  tabBarHtml += '</div>';
+
+  let tabContentHtml = '<div class="tab-content">';
+  if (activeTab === 'tools') {
+    tabContentHtml += renderToolsContent(tools);
+  } else {
+    tabContentHtml += '<div class="tab-placeholder">Not yet implemented</div>';
+  }
+  tabContentHtml += '</div>';
+
+  // Enable toggle with label
   const enabledChecked = s.enabled !== false ? ' checked' : '';
   const toggleHtml = '<label class="toggle-switch" title="Enable/Disable">'
     + '<input type="checkbox"' + enabledChecked + ' onchange="toggleEnabled(\'' + escHtml(selectedId) + '\', this.checked)">'
-    + '<span class="toggle-slider"></span></label>';
+    + '<span class="toggle-slider"></span>'
+    + '<span class="toggle-label">Auto Start</span></label>';
+
+  // Action buttons with icons
+  let actionBtns = toggleHtml;
+  actionBtns += '<button class="icon-btn" onclick="openEditModal(\'' + escHtml(selectedId) + '\')" title="Edit"><svg class="icon"><use href="#icon-pencil"/></svg></button>';
+  if (isRunning) {
+    actionBtns += '<button class="icon-btn danger" onclick="stopServer(\'' + escHtml(selectedId) + '\')" title="Stop"><svg class="icon"><use href="#icon-square"/></svg></button>';
+  } else {
+    actionBtns += '<button class="btn btn-accent" style="padding:4px 12px;font-size:12px;display:inline-flex;align-items:center;gap:4px" onclick="startServer(\'' + escHtml(selectedId) + '\')">'
+      + '<svg class="icon" style="width:12px;height:12px"><use href="#icon-play"/></svg> Start</button>';
+  }
+  actionBtns += '<button class="icon-btn danger" onclick="confirmDeleteServer(\'' + escHtml(selectedId) + '\')" title="Delete"><svg class="icon"><use href="#icon-trash"/></svg></button>';
+
+  // Log header with chevron + trash clear button
+  const logChevronId = logExpanded ? 'icon-chevron-down' : 'icon-chevron-up';
+  const logViewerClass = logExpanded ? 'expanded' : 'collapsed';
+  const logLines = (logs[selectedId] || []).map(l => '<div class="log-line">' + escHtml(l) + '</div>').join('');
 
   el.innerHTML = '<div class="content-header">'
     + '<div style="display:flex;align-items:center;gap:12px">'
     + '<h2>' + escHtml(selectedId) + '</h2>'
     + '<span class="status-badge ' + cls + '">' + statusLabel(s.status) + '</span>'
     + '</div>'
-    + '<div class="server-actions">'
-    + toggleHtml
-    + (isRunning
-        ? '<button class="btn btn-danger" onclick="stopServer(\'' + escHtml(selectedId) + '\')">Stop</button>'
-        : '<button class="btn btn-accent" onclick="startServer(\'' + escHtml(selectedId) + '\')">Start</button>')
-    + '<button class="btn btn-danger" onclick="deleteServer(\'' + escHtml(selectedId) + '\')">Delete</button>'
-    + '</div></div>'
+    + '<div class="server-actions">' + actionBtns + '</div></div>'
+    + '<div class="content-body">'
     + configHtml
-    + mcpInfoHtml
-    + toolsHtml
-    + '<div style="display:flex;align-items:center;justify-content:space-between;padding:6px 20px;border-bottom:1px solid var(--border);background:var(--surface)">'
-    + '<span style="font-size:10px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:0.5px">Logs</span>'
-    + '<button class="btn" style="padding:2px 10px;font-size:11px" onclick="clearLogs(\'' + escHtml(selectedId) + '\')">Clear</button>'
+    + tabBarHtml
+    + tabContentHtml
+    + '<div class="log-header" onclick="toggleLogPanel()">'
+    + '<div class="log-header-left">'
+    + '<svg class="icon" style="width:12px;height:12px;color:var(--text2)"><use href="#' + logChevronId + '"/></svg>'
+    + '<span class="log-header-label">Logs</span>'
     + '</div>'
-    + '<div class="log-viewer" id="logViewer">' + (logLines || '<div class="log-line" style="color:var(--text2)">No logs yet</div>') + '</div>';
+    + '<button class="icon-btn danger" style="width:22px;height:22px" onclick="event.stopPropagation();clearLogs(\'' + escHtml(selectedId) + '\')" title="Clear logs">'
+    + '<svg class="icon" style="width:10px;height:10px"><use href="#icon-trash"/></svg></button>'
+    + '</div>'
+    + '<div class="log-viewer ' + logViewerClass + '" id="logViewer">'
+    + (logLines || '<div class="log-line" style="color:var(--text2)">No logs yet</div>')
+    + '</div>'
+    + '</div>';
 
-  scrollLogToBottom();
+  if (logExpanded) scrollLogToBottom();
 }
 
-function capBadge(name, active) {
-  return '<span class="cap-badge ' + (active ? 'active' : 'inactive') + '">' + name + '</span>';
+function renderToolsContent(tools) {
+  if (tools.length === 0) {
+    return '<div class="tab-placeholder">No tools available</div>';
+  }
+  const toolItems = tools.map(t => {
+    if (typeof t === 'string') {
+      return '<div class="tool-item"><span class="tool-name">' + escHtml(t) + '</span></div>';
+    }
+    let html = '<div class="tool-item"><div><span class="tool-name">' + escHtml(t.name) + '</span>';
+    if (t.title) html += '<span class="tool-title">' + escHtml(t.title) + '</span>';
+    html += '</div>';
+    if (t.description) html += '<div class="tool-desc">' + escHtml(t.description) + '</div>';
+    if (t.annotations) {
+      html += '<div class="tool-annotations">';
+      if (t.annotations.read_only_hint === true) html += '<span class="annot-badge readonly">read-only</span>';
+      if (t.annotations.destructive_hint === true) html += '<span class="annot-badge destructive">destructive</span>';
+      if (t.annotations.idempotent_hint === true) html += '<span class="annot-badge idempotent">idempotent</span>';
+      if (t.annotations.open_world_hint === true) html += '<span class="annot-badge openworld">open-world</span>';
+      html += '</div>';
+    }
+    html += '</div>';
+    return html;
+  }).join('');
+  return '<div class="tools-panel">' + toolItems + '</div>';
+}
+
+function switchTab(tab) {
+  activeTab = tab;
+  renderContent();
+}
+
+function toggleLogPanel() {
+  logExpanded = !logExpanded;
+  renderContent();
 }
 
 function appendLog(line) {
   const viewer = document.getElementById('logViewer');
-  if (!viewer) return;
+  if (!viewer || !logExpanded) return;
   // Remove "No logs yet" placeholder
   if (viewer.children.length === 1 && viewer.children[0].style.color) {
     viewer.innerHTML = '';
@@ -587,7 +786,6 @@ function appendLog(line) {
   div.className = 'log-line';
   div.textContent = line;
   viewer.appendChild(div);
-  // Keep DOM at max 200 lines
   while (viewer.children.length > 200) {
     viewer.removeChild(viewer.firstChild);
   }
@@ -602,9 +800,9 @@ function scrollLogToBottom() {
 // --- Actions ---
 function selectServer(id) {
   selectedId = id;
+  activeTab = 'tools';
   renderSidebar();
   renderContent();
-  // Request logs snapshot
   fetch('/api/servers/' + encodeURIComponent(id) + '/logs', { method: 'GET' });
 }
 
@@ -616,8 +814,21 @@ async function stopServer(id) {
   await fetch('/api/servers/' + encodeURIComponent(id) + '/stop', { method: 'POST' });
 }
 
-async function deleteServer(id) {
-  if (!confirm('Delete server "' + id + '"?')) return;
+function confirmDeleteServer(id) {
+  pendingDeleteId = id;
+  document.getElementById('confirmMessage').textContent = 'Are you sure you want to delete server "' + id + '"? This action cannot be undone.';
+  document.getElementById('confirmModal').classList.add('visible');
+}
+
+function closeConfirmModal() {
+  pendingDeleteId = null;
+  document.getElementById('confirmModal').classList.remove('visible');
+}
+
+async function executeConfirmedDelete() {
+  if (!pendingDeleteId) return;
+  const id = pendingDeleteId;
+  closeConfirmModal();
   await fetch('/api/servers/' + encodeURIComponent(id), { method: 'DELETE' });
   delete servers[id];
   delete logs[id];
@@ -634,22 +845,67 @@ async function toggleEnabled(id, enabled) {
   });
   if (servers[id]) servers[id].enabled = enabled;
   renderSidebar();
-  // Refresh after a moment to get updated status
   setTimeout(refreshServers, 500);
 }
 
-// --- Add Server Modal ---
-function openAddModal() {
-  document.getElementById('addModal').classList.add('visible');
+// --- Server Modal (Add/Edit) ---
+function setTransport(type) {
+  currentTransport = type;
+  document.getElementById('transportStdio').className = type === 'stdio' ? 'active' : '';
+  document.getElementById('transportHttp').className = type === 'http' ? 'active' : '';
+  document.getElementById('stdioFields').style.display = type === 'stdio' ? '' : 'none';
+  document.getElementById('httpFields').style.display = type === 'http' ? '' : 'none';
+}
+
+function openServerModal() {
+  editingServerId = null;
+  document.getElementById('serverModalTitle').textContent = 'Add Server';
+  document.getElementById('serverModalSubmit').textContent = 'Add';
+  document.getElementById('templateGroup').style.display = '';
+  document.getElementById('serverId').disabled = false;
   document.getElementById('serverId').value = '';
   document.getElementById('serverCommand').value = '';
   document.getElementById('serverArgs').value = '';
   document.getElementById('serverEnv').value = '';
+  document.getElementById('serverUrl').value = '';
+  document.getElementById('serverAuthHeader').value = '';
   document.getElementById('templateSelect').value = '';
+  setTransport('stdio');
+  document.getElementById('serverModal').classList.add('visible');
 }
 
-function closeAddModal() {
-  document.getElementById('addModal').classList.remove('visible');
+function openEditModal(id) {
+  const s = servers[id];
+  if (!s) return;
+  editingServerId = id;
+  document.getElementById('serverModalTitle').textContent = 'Edit Server';
+  document.getElementById('serverModalSubmit').textContent = 'Save';
+  document.getElementById('templateGroup').style.display = 'none';
+  document.getElementById('serverId').value = id;
+  document.getElementById('serverId').disabled = true;
+
+  if (s.config.url) {
+    setTransport('http');
+    document.getElementById('serverUrl').value = s.config.url || '';
+    document.getElementById('serverAuthHeader').value = s.config.auth_header || '';
+    document.getElementById('serverCommand').value = '';
+    document.getElementById('serverArgs').value = '';
+    document.getElementById('serverEnv').value = '';
+  } else {
+    setTransport('stdio');
+    document.getElementById('serverCommand').value = s.config.command || '';
+    document.getElementById('serverArgs').value = (s.config.args || []).join('\n');
+    const envLines = Object.entries(s.config.env || {}).map(([k,v]) => k + '=' + v);
+    document.getElementById('serverEnv').value = envLines.join('\n');
+    document.getElementById('serverUrl').value = '';
+    document.getElementById('serverAuthHeader').value = '';
+  }
+  document.getElementById('serverModal').classList.add('visible');
+}
+
+function closeServerModal() {
+  document.getElementById('serverModal').classList.remove('visible');
+  editingServerId = null;
 }
 
 function applyTemplate() {
@@ -657,30 +913,53 @@ function applyTemplate() {
   const t = templates.find(x => x.name === name);
   if (!t) return;
   document.getElementById('serverId').value = name.toLowerCase().replace(/\s+/g, '-');
+  setTransport('stdio');
   document.getElementById('serverCommand').value = t.config.command;
   document.getElementById('serverArgs').value = (t.config.args || []).join('\n');
   const envLines = Object.entries(t.config.env || {}).map(([k,v]) => k + '=' + v);
   document.getElementById('serverEnv').value = envLines.join('\n');
 }
 
-async function submitAddServer() {
+async function submitServerModal() {
   const id = document.getElementById('serverId').value.trim();
-  const command = document.getElementById('serverCommand').value.trim();
-  if (!id || !command) { alert('ID and Command are required'); return; }
-  const args = document.getElementById('serverArgs').value.split('\n').map(s => s.trim()).filter(Boolean);
-  const envLines = document.getElementById('serverEnv').value.split('\n').map(s => s.trim()).filter(Boolean);
-  const env = {};
-  envLines.forEach(line => {
-    const eq = line.indexOf('=');
-    if (eq > 0) env[line.slice(0, eq)] = line.slice(eq + 1);
-  });
-  await fetch('/api/servers', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ id, config: { command, args, env } }),
-  });
-  closeAddModal();
-  // Give backend a moment then refresh
+  if (!id) { alert('Server ID is required'); return; }
+
+  let config;
+  if (currentTransport === 'stdio') {
+    const command = document.getElementById('serverCommand').value.trim();
+    if (!command) { alert('Command is required for STDIO servers'); return; }
+    const args = document.getElementById('serverArgs').value.split('\n').map(s => s.trim()).filter(Boolean);
+    const envLines = document.getElementById('serverEnv').value.split('\n').map(s => s.trim()).filter(Boolean);
+    const env = {};
+    envLines.forEach(line => {
+      const eq = line.indexOf('=');
+      if (eq > 0) env[line.slice(0, eq)] = line.slice(eq + 1);
+    });
+    config = { command, args, env };
+  } else {
+    const url = document.getElementById('serverUrl').value.trim();
+    if (!url) { alert('URL is required for HTTP servers'); return; }
+    config = { url };
+    const authHeader = document.getElementById('serverAuthHeader').value.trim();
+    if (authHeader) config.auth_header = authHeader;
+  }
+
+  if (editingServerId) {
+    // PUT update
+    await fetch('/api/servers/' + encodeURIComponent(editingServerId), {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ config }),
+    });
+  } else {
+    // POST add
+    await fetch('/api/servers', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, config }),
+    });
+  }
+  closeServerModal();
   setTimeout(refreshServers, 200);
 }
 
