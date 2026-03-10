@@ -1,4 +1,4 @@
-use crate::core::server::{ServerConfig, ServerStatus};
+use crate::core::server::{ServerConfig, ServerStatus, ToolInfo};
 use serde::Serialize;
 
 /// Commands sent from the GUI/web to the backend.
@@ -11,8 +11,10 @@ pub enum AppCommand {
     AddServer { id: String, config: ServerConfig },
     UpdateServer { id: String, config: ServerConfig },
     DeleteServer { id: String },
+    SetServerEnabled { id: String, enabled: bool },
     LoadConfig,
     SaveConfig,
+    ReloadConfigIfChanged,
     RequestLogs { id: String },
     ClearLogs { id: String },
     Shutdown,
@@ -26,7 +28,7 @@ pub enum BackendEvent {
     LogLine { id: String, line: String },
     LogSnapshot { id: String, lines: Vec<String> },
     ConfigLoaded { servers: Vec<(String, ServerConfig)> },
-    McpToolsChanged { id: String, tools: Vec<String> },
+    McpToolsChanged { id: String, tools: Vec<ToolInfo> },
     McpServerReady { id: String },
     Error { message: String },
 }

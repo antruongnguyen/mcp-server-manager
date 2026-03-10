@@ -7,7 +7,9 @@ use crate::bridge::commands::{AppCommand, BackendEvent};
 use crate::core::config;
 use crate::core::log_buffer::LogBuffer;
 use crate::core::process;
-use crate::core::server::{ServerConfig, ServerStatus};
+use crate::core::server::{
+    McpCapabilities, McpPeerInfo, ServerConfig, ServerStatus, ToolAnnotationInfo, ToolInfo,
+};
 use crate::mcp::client::{self, McpClient};
 
 /// Shared server info exposed to the web layer.
@@ -15,7 +17,10 @@ use crate::mcp::client::{self, McpClient};
 pub struct ServerInfo {
     pub config: ServerConfig,
     pub status: ServerStatus,
-    pub tools: Vec<String>,
+    pub tools: Vec<ToolInfo>,
+    pub enabled: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub peer_info: Option<McpPeerInfo>,
 }
 
 /// Shared state accessible by both the manager and the web server.
@@ -39,12 +44,17 @@ pub struct ServerManager {
     connect_result_rx: tokio::sync::mpsc::UnboundedReceiver<ConnectResult>,
     /// Watch channel to signal the proxy when tool lists change.
     tool_change_tx: tokio::sync::watch::Sender<()>,
+    /// Port the web server is running on (persisted in config saves).
+    port: u16,
+    /// Tracks the last time we saved config, to suppress watcher events from our own writes.
+    last_save_instant: std::time::Instant,
 }
 
 struct ManagedServer {
     config: ServerConfig,
     status: ServerStatus,
-    tools: Vec<String>,
+    tools: Vec<ToolInfo>,
+    peer_info: Option<McpPeerInfo>,
     logs: LogBuffer,
     child: Option<tokio::process::Child>,
 }
@@ -59,13 +69,53 @@ struct ConnectSuccess {
     client: Arc<McpClient>,
     child: Option<tokio::process::Child>,
     pid: Option<u32>,
-    tool_names: Vec<String>,
-    /// Peer server info from MCP handshake (protocol version, capabilities, etc.)
-    peer_info: Option<String>,
+    tools: Vec<ToolInfo>,
+    peer_info: Option<McpPeerInfo>,
 }
 
 fn send(tx: &tokio::sync::broadcast::Sender<BackendEvent>, event: BackendEvent) {
     let _ = tx.send(event);
+}
+
+/// Convert rmcp Tool to our ToolInfo.
+fn tool_to_info(tool: &rmcp::model::Tool) -> ToolInfo {
+    ToolInfo {
+        name: tool.name.to_string(),
+        title: tool.title.as_ref().map(|t| t.to_string()),
+        description: tool.description.as_ref().map(|d| d.to_string()),
+        annotations: tool.annotations.as_ref().map(|a| ToolAnnotationInfo {
+            read_only_hint: a.read_only_hint,
+            destructive_hint: a.destructive_hint,
+            idempotent_hint: a.idempotent_hint,
+            open_world_hint: a.open_world_hint,
+        }),
+    }
+}
+
+/// Convert rmcp ServerInfo (InitializeResult) to our McpPeerInfo.
+fn server_info_to_peer_info(info: &rmcp::model::ServerInfo) -> McpPeerInfo {
+    let impl_info = &info.server_info;
+    let name = impl_info.name.clone();
+    let version = impl_info.version.clone();
+    let title = impl_info.title.clone();
+    let description = impl_info.description.clone();
+    let instructions = info.instructions.clone();
+
+    let caps = &info.capabilities;
+    McpPeerInfo {
+        name,
+        version,
+        title,
+        description,
+        protocol_version: info.protocol_version.to_string(),
+        instructions,
+        capabilities: McpCapabilities {
+            tools: caps.tools.is_some(),
+            resources: caps.resources.is_some(),
+            prompts: caps.prompts.is_some(),
+            logging: caps.logging.is_some(),
+        },
+    }
 }
 
 impl ServerManager {
@@ -75,6 +125,7 @@ impl ServerManager {
         shared: SharedServers,
         shared_mcp_clients: SharedMcpClients,
         tool_change_tx: tokio::sync::watch::Sender<()>,
+        port: u16,
     ) -> Self {
         let (log_tx, log_rx) = tokio::sync::mpsc::unbounded_channel();
         let (connect_result_tx, connect_result_rx) = tokio::sync::mpsc::unbounded_channel();
@@ -89,6 +140,10 @@ impl ServerManager {
             connect_result_tx,
             connect_result_rx,
             tool_change_tx,
+            port,
+            last_save_instant: std::time::Instant::now()
+                .checked_sub(std::time::Duration::from_secs(10))
+                .unwrap_or_else(std::time::Instant::now),
         }
     }
 
@@ -96,7 +151,7 @@ impl ServerManager {
     pub async fn run(&mut self) {
         tracing::info!("ServerManager started");
 
-        // Auto-load config from ~/.config/mcpsm/mcp.json
+        // Auto-load config from ~/.config/mcpsm/mcp.json and start enabled servers
         self.auto_load_config().await;
 
         loop {
@@ -124,6 +179,16 @@ impl ServerManager {
 
     async fn auto_load_config(&mut self) {
         self.handle_load_config().await;
+        // Auto-start all enabled servers
+        let ids: Vec<String> = self
+            .servers
+            .iter()
+            .filter(|(_, s)| s.config.enabled)
+            .map(|(id, _)| id.clone())
+            .collect();
+        for id in ids {
+            self.handle_start_server(&id).await;
+        }
     }
 
     async fn handle_command(&mut self, cmd: AppCommand) -> bool {
@@ -141,6 +206,10 @@ impl ServerManager {
                 self.handle_save_config();
                 false
             }
+            AppCommand::ReloadConfigIfChanged => {
+                self.handle_reload_config_if_changed().await;
+                false
+            }
             AppCommand::AddServer { id, config } => {
                 self.handle_add_server(id, config).await;
                 false
@@ -151,6 +220,10 @@ impl ServerManager {
             }
             AppCommand::DeleteServer { id } => {
                 self.handle_delete_server(&id).await;
+                false
+            }
+            AppCommand::SetServerEnabled { id, enabled } => {
+                self.handle_set_enabled(&id, enabled).await;
                 false
             }
             AppCommand::StartServer { id } => {
@@ -180,10 +253,7 @@ impl ServerManager {
         if let Some(server) = self.servers.get_mut(&id) {
             server.logs.push(line.clone());
         }
-        send(
-            &self.evt_tx,
-            BackendEvent::LogLine { id, line },
-        );
+        send(&self.evt_tx, BackendEvent::LogLine { id, line });
     }
 
     async fn handle_connect_result(&mut self, result: ConnectResult) {
@@ -192,7 +262,8 @@ impl ServerManager {
         match result {
             Ok(success) => {
                 if let Some(server) = self.servers.get_mut(&id) {
-                    server.tools = success.tool_names.clone();
+                    server.tools = success.tools.clone();
+                    server.peer_info = success.peer_info.clone();
                     server.status = ServerStatus::Ready { pid: success.pid };
                     server.child = success.child;
 
@@ -217,7 +288,7 @@ impl ServerManager {
                         &self.evt_tx,
                         BackendEvent::McpToolsChanged {
                             id: id.clone(),
-                            tools: success.tool_names.clone(),
+                            tools: success.tools.clone(),
                         },
                     );
                     send(
@@ -226,13 +297,32 @@ impl ServerManager {
                     );
 
                     // Inject lifecycle logs into the server's log buffer
-                    if let Some(info) = success.peer_info {
-                        self.push_log(&id, format!("[mcpsm] MCP handshake complete: {}", info));
+                    if let Some(ref info) = success.peer_info {
+                        self.push_log(
+                            &id,
+                            format!(
+                                "[mcpsm] MCP handshake complete: {} v{} (protocol {})",
+                                info.name, info.version, info.protocol_version
+                            ),
+                        );
                     }
                     if let Some(pid_val) = pid {
-                        self.push_log(&id, format!("[mcpsm] Server ready (PID {}), {} tools discovered", pid_val, success.tool_names.len()));
+                        self.push_log(
+                            &id,
+                            format!(
+                                "[mcpsm] Server ready (PID {}), {} tools discovered",
+                                pid_val,
+                                success.tools.len()
+                            ),
+                        );
                     } else {
-                        self.push_log(&id, format!("[mcpsm] Server ready (remote), {} tools discovered", success.tool_names.len()));
+                        self.push_log(
+                            &id,
+                            format!(
+                                "[mcpsm] Server ready (remote), {} tools discovered",
+                                success.tools.len()
+                            ),
+                        );
                     }
 
                     tracing::info!("Server '{}' ready with PID {:?}", id, pid);
@@ -274,6 +364,7 @@ impl ServerManager {
                             config: config.clone(),
                             status: ServerStatus::Stopped,
                             tools: Vec::new(),
+                            peer_info: None,
                             logs: LogBuffer::new(),
                             child: None,
                         },
@@ -294,7 +385,7 @@ impl ServerManager {
         }
     }
 
-    fn handle_save_config(&self) {
+    fn handle_save_config(&mut self) {
         let existing_doc = match config::load() {
             Ok((_, doc)) => doc,
             Err(_) => serde_json::json!({}),
@@ -306,8 +397,9 @@ impl ServerManager {
             .map(|(id, s)| (id.clone(), s.config.clone()))
             .collect();
 
-        match config::save(&servers, &existing_doc) {
+        match config::save(&servers, &existing_doc, self.port) {
             Ok(()) => {
+                self.last_save_instant = std::time::Instant::now();
                 tracing::info!("Config saved ({} servers)", servers.len());
             }
             Err(e) => {
@@ -322,6 +414,101 @@ impl ServerManager {
         }
     }
 
+    async fn handle_reload_config_if_changed(&mut self) {
+        // Ignore events triggered by our own save (within 2 seconds)
+        if self.last_save_instant.elapsed() < std::time::Duration::from_secs(2) {
+            tracing::debug!("Ignoring config watcher event (recent save)");
+            return;
+        }
+
+        let (new_servers, _doc) = match config::load() {
+            Ok(result) => result,
+            Err(e) => {
+                tracing::error!("Failed to reload config: {}", e);
+                return;
+            }
+        };
+
+        tracing::info!("Config file changed, reloading...");
+
+        let new_map: HashMap<String, ServerConfig> = new_servers.into_iter().collect();
+        let old_ids: Vec<String> = self.servers.keys().cloned().collect();
+
+        // Removed servers: stop and remove
+        for id in &old_ids {
+            if !new_map.contains_key(id) {
+                tracing::info!("Config reload: removing server '{}'", id);
+                self.handle_stop_server(id).await;
+                self.servers.remove(id);
+                self.shared_mcp_clients.write().await.remove(id);
+            }
+        }
+
+        // New or changed servers
+        for (id, new_config) in &new_map {
+            if let Some(existing) = self.servers.get(id) {
+                // Check if config changed (compare without enabled, then check enabled separately)
+                let config_changed = existing.config.command != new_config.command
+                    || existing.config.args != new_config.args
+                    || existing.config.env != new_config.env
+                    || existing.config.url != new_config.url;
+                let enabled_changed = existing.config.enabled != new_config.enabled;
+                let was_running = existing.status.is_running();
+
+                if config_changed {
+                    tracing::info!("Config reload: server '{}' config changed", id);
+                    self.handle_stop_server(id).await;
+                    if let Some(server) = self.servers.get_mut(id) {
+                        server.config = new_config.clone();
+                    }
+                    if new_config.enabled {
+                        self.handle_start_server(id).await;
+                    }
+                } else if enabled_changed {
+                    tracing::info!(
+                        "Config reload: server '{}' enabled changed to {}",
+                        id,
+                        new_config.enabled
+                    );
+                    if let Some(server) = self.servers.get_mut(id) {
+                        server.config.enabled = new_config.enabled;
+                    }
+                    if new_config.enabled && !was_running {
+                        self.handle_start_server(id).await;
+                    } else if !new_config.enabled && was_running {
+                        self.handle_stop_server(id).await;
+                    }
+                }
+                // Unchanged: skip
+            } else {
+                // New server
+                tracing::info!("Config reload: adding server '{}'", id);
+                self.servers.insert(
+                    id.clone(),
+                    ManagedServer {
+                        config: new_config.clone(),
+                        status: ServerStatus::Stopped,
+                        tools: Vec::new(),
+                        peer_info: None,
+                        logs: LogBuffer::new(),
+                        child: None,
+                    },
+                );
+                if new_config.enabled {
+                    self.handle_start_server(id).await;
+                }
+            }
+        }
+
+        self.sync_shared_state().await;
+        let loaded: Vec<(String, ServerConfig)> = self
+            .servers
+            .iter()
+            .map(|(id, s)| (id.clone(), s.config.clone()))
+            .collect();
+        send(&self.evt_tx, BackendEvent::ConfigLoaded { servers: loaded });
+    }
+
     async fn handle_add_server(&mut self, id: String, config: ServerConfig) {
         self.servers.insert(
             id.clone(),
@@ -329,6 +516,7 @@ impl ServerManager {
                 config,
                 status: ServerStatus::Stopped,
                 tools: Vec::new(),
+                peer_info: None,
                 logs: LogBuffer::new(),
                 child: None,
             },
@@ -367,6 +555,28 @@ impl ServerManager {
         self.handle_save_config();
     }
 
+    async fn handle_set_enabled(&mut self, id: &str, enabled: bool) {
+        let was_running = self
+            .servers
+            .get(id)
+            .is_some_and(|s| s.status.is_running());
+
+        if let Some(server) = self.servers.get_mut(id) {
+            server.config.enabled = enabled;
+        } else {
+            return;
+        }
+
+        self.handle_save_config();
+        self.sync_shared_state().await;
+
+        if enabled && !was_running {
+            self.handle_start_server(id).await;
+        } else if !enabled && was_running {
+            self.handle_stop_server(id).await;
+        }
+    }
+
     async fn handle_start_server(&mut self, id: &str) {
         if !self.servers.contains_key(id) {
             send(
@@ -391,6 +601,7 @@ impl ServerManager {
             server.status = ServerStatus::Starting;
             server.logs.clear();
             server.tools.clear();
+            server.peer_info = None;
         }
         self.sync_shared_state().await;
         send(
@@ -412,7 +623,13 @@ impl ServerManager {
             self.push_log(id, format!("[mcpsm] Starting server: {}", cmd_line.trim()));
             self.spawn_stdio_connect(id, &config);
         } else if config.is_remote() {
-            self.push_log(id, format!("[mcpsm] Connecting to remote server: {}", config.url.as_deref().unwrap_or("")));
+            self.push_log(
+                id,
+                format!(
+                    "[mcpsm] Connecting to remote server: {}",
+                    config.url.as_deref().unwrap_or("")
+                ),
+            );
             self.spawn_remote_connect(id, &config);
         } else {
             let server = self.servers.get_mut(id).unwrap();
@@ -455,7 +672,8 @@ impl ServerManager {
 
         tokio::spawn(async move {
             let result = async {
-                let conn = client::connect_stdio(&config_clone).await
+                let conn = client::connect_stdio(&config_clone)
+                    .await
                     .map_err(|e| format!("Failed to connect: {}", e))?;
 
                 // Set up stderr log reader
@@ -465,20 +683,21 @@ impl ServerManager {
 
                 let pid = conn.child.as_ref().and_then(|c| process::get_pid(c));
 
-                // Get peer server info (protocol version, capabilities, etc.)
-                let peer_info = client::peer_info(&conn.client)
-                    .map(|info| format!("{:?}", info));
+                // Get peer server info
+                let peer_info =
+                    client::peer_info(&conn.client).map(|info| server_info_to_peer_info(&info));
 
                 // List tools from the initialized client
-                let tools = client::list_tools(&conn.client).await
+                let tools = client::list_tools(&conn.client)
+                    .await
                     .map_err(|e| format!("Failed to list tools: {}", e))?;
-                let tool_names: Vec<String> = tools.iter().map(|t| t.name.to_string()).collect();
+                let tool_infos: Vec<ToolInfo> = tools.iter().map(|t| tool_to_info(t)).collect();
 
                 Ok(ConnectSuccess {
                     client: Arc::new(conn.client),
                     child: conn.child,
                     pid,
-                    tool_names,
+                    tools: tool_infos,
                     peer_info,
                 })
             }
@@ -498,22 +717,24 @@ impl ServerManager {
 
         tokio::spawn(async move {
             let result = async {
-                let mcp_client = client::connect_http(&url).await
+                let mcp_client = client::connect_http(&url)
+                    .await
                     .map_err(|e| format!("Failed to connect: {}", e))?;
 
-                // Get peer server info (protocol version, capabilities, etc.)
-                let peer_info = client::peer_info(&mcp_client)
-                    .map(|info| format!("{:?}", info));
+                // Get peer server info
+                let peer_info =
+                    client::peer_info(&mcp_client).map(|info| server_info_to_peer_info(&info));
 
-                let tools = client::list_tools(&mcp_client).await
+                let tools = client::list_tools(&mcp_client)
+                    .await
                     .map_err(|e| format!("Failed to list tools: {}", e))?;
-                let tool_names: Vec<String> = tools.iter().map(|t| t.name.to_string()).collect();
+                let tool_infos: Vec<ToolInfo> = tools.iter().map(|t| tool_to_info(t)).collect();
 
                 Ok(ConnectSuccess {
                     client: Arc::new(mcp_client),
                     child: None,
                     pid: None,
-                    tool_names,
+                    tools: tool_infos,
                     peer_info,
                 })
             }
@@ -564,6 +785,7 @@ impl ServerManager {
             }
             server.child = None;
             server.tools.clear();
+            server.peer_info = None;
             server.status = ServerStatus::Stopped;
         }
         let _ = self.tool_change_tx.send(());
@@ -639,6 +861,8 @@ impl ServerManager {
                         config: s.config.clone(),
                         status: s.status.clone(),
                         tools: s.tools.clone(),
+                        enabled: s.config.enabled,
+                        peer_info: s.peer_info.clone(),
                     },
                 )
             })

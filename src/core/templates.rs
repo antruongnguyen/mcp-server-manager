@@ -21,6 +21,7 @@ pub fn builtin_templates() -> Vec<ServerTemplate> {
                 ],
                 env: HashMap::new(),
                 url: None,
+                enabled: true,
             },
         },
         ServerTemplate {
@@ -31,6 +32,7 @@ pub fn builtin_templates() -> Vec<ServerTemplate> {
                 args: vec!["-y".into(), "@modelcontextprotocol/server-memory".into()],
                 env: HashMap::from([("MEMORY_FILE_PATH".into(), "memory.json".into())]),
                 url: None,
+                enabled: true,
             },
         },
         ServerTemplate {
@@ -41,6 +43,7 @@ pub fn builtin_templates() -> Vec<ServerTemplate> {
                 args: vec!["-y".into(), "@upstash/context7-mcp".into()],
                 env: HashMap::new(),
                 url: None,
+                enabled: true,
             },
         },
     ]

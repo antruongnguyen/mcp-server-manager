@@ -4,3 +4,4 @@ pub mod manager;
 pub mod process;
 pub mod server;
 pub mod templates;
+pub mod watcher;

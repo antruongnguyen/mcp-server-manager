@@ -97,3 +97,20 @@ pub async fn list_templates() -> Json<serde_json::Value> {
         .collect();
     Json(serde_json::Value::Array(list))
 }
+
+#[derive(serde::Deserialize)]
+pub struct SetEnabledRequest {
+    pub enabled: bool,
+}
+
+pub async fn set_enabled(
+    State(state): State<Arc<AppState>>,
+    Path(id): Path<String>,
+    Json(body): Json<SetEnabledRequest>,
+) -> StatusCode {
+    let _ = state.cmd_tx.send(AppCommand::SetServerEnabled {
+        id,
+        enabled: body.enabled,
+    });
+    StatusCode::ACCEPTED
+}

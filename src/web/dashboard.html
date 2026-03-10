@@ -74,11 +74,12 @@
   .server-list { flex: 1; overflow-y: auto; padding: 4px 0; }
   .server-item {
     display: flex; align-items: center; gap: 10px;
-    padding: 10px 16px; cursor: pointer; transition: background 0.1s;
+    padding: 10px 16px; cursor: pointer; transition: background 0.1s, opacity 0.15s;
     border-left: 3px solid transparent;
   }
   .server-item:hover { background: var(--surface2); }
   .server-item.active { background: var(--surface2); border-left-color: var(--accent); }
+  .server-item.disabled { opacity: 0.5; }
   .status-dot {
     width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
   }
@@ -110,7 +111,48 @@
   .status-badge.running { background: #1d3520; color: var(--green); }
   .status-badge.ready { background: #1d2d40; color: var(--blue); }
   .status-badge.error { background: #3d1d1d; color: var(--red); }
-  .server-actions { display: flex; gap: 6px; }
+  .server-actions { display: flex; gap: 6px; align-items: center; }
+
+  /* Enable toggle switch */
+  .toggle-switch {
+    position: relative; display: inline-block; width: 36px; height: 20px;
+  }
+  .toggle-switch input { opacity: 0; width: 0; height: 0; }
+  .toggle-slider {
+    position: absolute; cursor: pointer; inset: 0;
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 20px; transition: 0.2s;
+  }
+  .toggle-slider:before {
+    content: ''; position: absolute; height: 14px; width: 14px;
+    left: 2px; bottom: 2px; background: var(--text2);
+    border-radius: 50%; transition: 0.2s;
+  }
+  .toggle-switch input:checked + .toggle-slider { background: var(--accent); border-color: var(--accent); }
+  .toggle-switch input:checked + .toggle-slider:before { transform: translateX(16px); background: #fff; }
+
+  /* MCP Server Info panel */
+  .mcp-info-panel {
+    padding: 10px 20px; border-bottom: 1px solid var(--border);
+    background: var(--surface); font-size: 12px;
+  }
+  .mcp-info-panel-header {
+    color: var(--text2); font-weight: 600; margin-bottom: 6px;
+    text-transform: uppercase; font-size: 10px; letter-spacing: 0.5px;
+  }
+  .mcp-info-row { display: flex; gap: 8px; align-items: center; margin-bottom: 4px; flex-wrap: wrap; }
+  .mcp-info-label { color: var(--text2); min-width: 80px; }
+  .mcp-info-value { color: var(--text); font-family: "SF Mono", "Menlo", "Consolas", monospace; }
+  .cap-badge {
+    display: inline-block; font-size: 10px; padding: 1px 6px; border-radius: 4px;
+    font-weight: 500; margin: 1px 2px;
+  }
+  .cap-badge.active { background: #1d2d40; color: var(--blue); }
+  .cap-badge.inactive { background: var(--surface2); color: var(--text2); opacity: 0.5; }
+  .instructions-block {
+    margin-top: 6px; padding: 6px 10px; background: var(--bg); border-radius: var(--radius);
+    font-size: 11px; color: var(--text2); line-height: 1.5; white-space: pre-wrap;
+  }
 
   /* Tools panel */
   .tools-panel {
@@ -121,6 +163,25 @@
     color: var(--text2); font-weight: 600; margin-bottom: 4px;
     text-transform: uppercase; font-size: 10px; letter-spacing: 0.5px;
   }
+  .tool-item {
+    padding: 6px 0; border-bottom: 1px solid var(--border);
+  }
+  .tool-item:last-child { border-bottom: none; }
+  .tool-name {
+    font-family: "SF Mono", "Menlo", "Consolas", monospace;
+    font-weight: 600; font-size: 12px; color: var(--text);
+  }
+  .tool-title { color: var(--text2); font-size: 11px; margin-left: 8px; }
+  .tool-desc { color: var(--text2); font-size: 11px; margin-top: 2px; line-height: 1.4; }
+  .tool-annotations { margin-top: 3px; }
+  .annot-badge {
+    display: inline-block; font-size: 9px; padding: 1px 5px; border-radius: 3px;
+    font-weight: 500; margin-right: 4px;
+  }
+  .annot-badge.readonly { background: #1d3520; color: var(--green); }
+  .annot-badge.destructive { background: #3d1d1d; color: var(--red); }
+  .annot-badge.idempotent { background: #1d2d40; color: var(--blue); }
+  .annot-badge.openworld { background: #3d3520; color: var(--yellow); }
   .tool-tag {
     display: inline-block; background: var(--surface2); color: var(--text);
     padding: 2px 8px; border-radius: 4px; margin: 2px 2px; font-size: 11px;
@@ -239,24 +300,23 @@
       <div style="margin-bottom:12px">
         <div style="margin-bottom:4px"><strong style="color:var(--text)">Streamable HTTP</strong> <span style="font-size:11px">(supports POST, GET with SSE, and DELETE)</span></div>
         <div style="display:flex;align-items:center;gap:8px">
-          <code style="background:var(--bg);padding:4px 8px;border-radius:4px;font-family:'SF Mono','Menlo','Consolas',monospace;font-size:12px;color:var(--text);flex:1">http://127.0.0.1:17532/mcp</code>
-          <button class="btn" style="padding:4px 10px;font-size:11px" onclick="copyUrl(event, 'http://127.0.0.1:17532/mcp')">Copy</button>
+          <code id="proxyUrl" style="background:var(--bg);padding:4px 8px;border-radius:4px;font-family:'SF Mono','Menlo','Consolas',monospace;font-size:12px;color:var(--text);flex:1"></code>
+          <button class="btn" style="padding:4px 10px;font-size:11px" onclick="copyUrl(event, mcpUrl())">Copy</button>
         </div>
       </div>
       <div style="border-top:1px solid var(--border);padding-top:12px;margin-bottom:12px">
         <div style="margin-bottom:8px"><strong style="color:var(--text)">Setup Instructions</strong></div>
         <div style="margin-bottom:6px"><strong style="color:var(--text)">Claude Code:</strong></div>
         <div style="margin-bottom:10px">
-          <code style="background:var(--bg);padding:4px 8px;border-radius:4px;font-family:'SF Mono','Menlo','Consolas',monospace;font-size:11px;color:var(--text);display:block">claude mcp add mcpsm --transport http http://127.0.0.1:17532/mcp</code>
+          <code id="claudeCodeCmd" style="background:var(--bg);padding:4px 8px;border-radius:4px;font-family:'SF Mono','Menlo','Consolas',monospace;font-size:11px;color:var(--text);display:block"></code>
         </div>
         <div style="margin-bottom:6px"><strong style="color:var(--text)">Cline:</strong></div>
         <div style="margin-bottom:10px">
-          <code style="background:var(--bg);padding:4px 8px;border-radius:4px;font-family:'SF Mono','Menlo','Consolas',monospace;font-size:11px;color:var(--text);display:block;white-space:pre;line-height:1.5">Type: streamableHttp
-URL:  http://127.0.0.1:17532/mcp</code>
+          <code id="clineCmd" style="background:var(--bg);padding:4px 8px;border-radius:4px;font-family:'SF Mono','Menlo','Consolas',monospace;font-size:11px;color:var(--text);display:block;white-space:pre;line-height:1.5"></code>
         </div>
         <div style="margin-bottom:6px"><strong style="color:var(--text)">Cursor / Copilot / Other:</strong></div>
         <div style="margin-bottom:10px">
-          <code style="background:var(--bg);padding:4px 8px;border-radius:4px;font-family:'SF Mono','Menlo','Consolas',monospace;font-size:11px;color:var(--text);display:block">URL: http://127.0.0.1:17532/mcp</code>
+          <code id="cursorCmd" style="background:var(--bg);padding:4px 8px;border-radius:4px;font-family:'SF Mono','Menlo','Consolas',monospace;font-size:11px;color:var(--text);display:block"></code>
         </div>
       </div>
       <div style="font-size:11px;color:var(--text2);padding:8px;background:var(--bg);border-radius:var(--radius)">
@@ -275,11 +335,26 @@ let selectedId = null;
 let logs = {};
 let templates = [];
 
+function mcpUrl() { return window.location.origin + '/mcp'; }
+
 // --- Init ---
 async function init() {
   await loadTemplates();
   await refreshServers();
   connectSSE();
+  updateProxyHelpUrls();
+}
+
+function updateProxyHelpUrls() {
+  const url = mcpUrl();
+  const el = document.getElementById('proxyUrl');
+  if (el) el.textContent = url;
+  const cc = document.getElementById('claudeCodeCmd');
+  if (cc) cc.textContent = 'claude mcp add mcpsm --transport http ' + url;
+  const cl = document.getElementById('clineCmd');
+  if (cl) cl.textContent = 'Type: streamableHttp\nURL:  ' + url;
+  const cu = document.getElementById('cursorCmd');
+  if (cu) cu.textContent = 'URL: ' + url;
 }
 
 async function loadTemplates() {
@@ -323,7 +398,7 @@ function handleEvent(evt) {
       if (servers[evt.id]) {
         servers[evt.id].status = evt.status;
       } else {
-        servers[evt.id] = { config: { command: '', args: [], env: {} }, status: evt.status, tools: [] };
+        servers[evt.id] = { config: { command: '', args: [], env: {} }, status: evt.status, tools: [], enabled: true };
         refreshServers();
         return;
       }
@@ -338,7 +413,7 @@ function handleEvent(evt) {
       if (selectedId === evt.id) renderContent();
       break;
     case 'McpServerReady':
-      // Refresh to get latest state
+      // Refresh to get latest state (including peer_info)
       refreshServers();
       break;
     case 'LogLine':
@@ -372,8 +447,8 @@ function statusLabel(status) {
     case 'Stopped': return 'Stopped';
     case 'Starting': return 'Starting';
     case 'Running': return 'Running (PID ' + status.pid + ')';
-    case 'Initializing': return 'Initializing (PID ' + status.pid + ')';
-    case 'Ready': return 'Ready (PID ' + status.pid + ')';
+    case 'Initializing': return 'Initializing' + (status.pid ? ' (PID ' + status.pid + ')' : '');
+    case 'Ready': return 'Ready' + (status.pid ? ' (PID ' + status.pid + ')' : ' (remote)');
     case 'Stopping': return 'Stopping';
     case 'Error': return 'Error: ' + status.message;
     default: return status.type;
@@ -387,11 +462,12 @@ function renderSidebar() {
     const s = servers[id];
     const cls = statusClass(s.status);
     const active = id === selectedId ? ' active' : '';
+    const disabled = (s.enabled === false) ? ' disabled' : '';
     const toolCount = (s.tools && s.tools.length) || 0;
     const toolBadge = toolCount > 0
       ? '<span class="server-tools-count">' + toolCount + ' tools</span>'
       : '';
-    return '<div class="server-item' + active + '" onclick="selectServer(\'' + escHtml(id) + '\')">'
+    return '<div class="server-item' + active + disabled + '" onclick="selectServer(\'' + escHtml(id) + '\')">'
       + '<span class="status-dot ' + cls + '"></span>'
       + '<span class="server-name">' + escHtml(id) + '</span>'
       + toolBadge
@@ -408,18 +484,69 @@ function renderContent() {
   const s = servers[selectedId];
   const cls = statusClass(s.status);
   const isRunning = s.status && (s.status.type === 'Running' || s.status.type === 'Initializing' || s.status.type === 'Ready');
-  const cmdLine = escHtml(s.config.command + ' ' + (s.config.args || []).join(' '));
   const logLines = (logs[selectedId] || []).map(l => '<div class="log-line">' + escHtml(l) + '</div>').join('');
+
+  // Config details
+  let configHtml = '';
+  if (s.config.command) {
+    const cmdLine = escHtml(s.config.command + ' ' + (s.config.args || []).join(' '));
+    configHtml = '<div class="config-details">Command: <code>' + cmdLine + '</code></div>';
+  } else if (s.config.url) {
+    configHtml = '<div class="config-details">URL: <code>' + escHtml(s.config.url) + '</code></div>';
+  }
+
+  // MCP Server info panel
+  let mcpInfoHtml = '';
+  if (s.peer_info) {
+    const p = s.peer_info;
+    mcpInfoHtml = '<div class="mcp-info-panel">'
+      + '<div class="mcp-info-panel-header">MCP Server Info</div>'
+      + '<div class="mcp-info-row"><span class="mcp-info-label">Server:</span><span class="mcp-info-value">' + escHtml(p.name) + ' v' + escHtml(p.version) + '</span></div>'
+      + '<div class="mcp-info-row"><span class="mcp-info-label">Protocol:</span><span class="mcp-info-value">' + escHtml(p.protocol_version) + '</span></div>'
+      + '<div class="mcp-info-row"><span class="mcp-info-label">Capabilities:</span>'
+      + capBadge('Tools', p.capabilities.tools) + capBadge('Resources', p.capabilities.resources)
+      + capBadge('Prompts', p.capabilities.prompts) + capBadge('Logging', p.capabilities.logging)
+      + '</div>';
+    if (p.instructions) {
+      mcpInfoHtml += '<div class="instructions-block">' + escHtml(p.instructions) + '</div>';
+    }
+    mcpInfoHtml += '</div>';
+  }
 
   // Tools panel
   const tools = s.tools || [];
   let toolsHtml = '';
   if (tools.length > 0) {
+    const toolItems = tools.map(t => {
+      if (typeof t === 'string') {
+        return '<span class="tool-tag">' + escHtml(t) + '</span>';
+      }
+      let html = '<div class="tool-item"><div><span class="tool-name">' + escHtml(t.name) + '</span>';
+      if (t.title) html += '<span class="tool-title">' + escHtml(t.title) + '</span>';
+      html += '</div>';
+      if (t.description) html += '<div class="tool-desc">' + escHtml(t.description) + '</div>';
+      if (t.annotations) {
+        html += '<div class="tool-annotations">';
+        if (t.annotations.read_only_hint === true) html += '<span class="annot-badge readonly">read-only</span>';
+        if (t.annotations.destructive_hint === true) html += '<span class="annot-badge destructive">destructive</span>';
+        if (t.annotations.idempotent_hint === true) html += '<span class="annot-badge idempotent">idempotent</span>';
+        if (t.annotations.open_world_hint === true) html += '<span class="annot-badge openworld">open-world</span>';
+        html += '</div>';
+      }
+      html += '</div>';
+      return html;
+    }).join('');
     toolsHtml = '<div class="tools-panel">'
       + '<div class="tools-panel-header">Tools (' + tools.length + ')</div>'
-      + tools.map(t => '<span class="tool-tag">' + escHtml(t) + '</span>').join('')
+      + toolItems
       + '</div>';
   }
+
+  // Enable toggle
+  const enabledChecked = s.enabled !== false ? ' checked' : '';
+  const toggleHtml = '<label class="toggle-switch" title="Enable/Disable">'
+    + '<input type="checkbox"' + enabledChecked + ' onchange="toggleEnabled(\'' + escHtml(selectedId) + '\', this.checked)">'
+    + '<span class="toggle-slider"></span></label>';
 
   el.innerHTML = '<div class="content-header">'
     + '<div style="display:flex;align-items:center;gap:12px">'
@@ -427,12 +554,14 @@ function renderContent() {
     + '<span class="status-badge ' + cls + '">' + statusLabel(s.status) + '</span>'
     + '</div>'
     + '<div class="server-actions">'
+    + toggleHtml
     + (isRunning
         ? '<button class="btn btn-danger" onclick="stopServer(\'' + escHtml(selectedId) + '\')">Stop</button>'
         : '<button class="btn btn-accent" onclick="startServer(\'' + escHtml(selectedId) + '\')">Start</button>')
     + '<button class="btn btn-danger" onclick="deleteServer(\'' + escHtml(selectedId) + '\')">Delete</button>'
     + '</div></div>'
-    + '<div class="config-details">Command: <code>' + cmdLine + '</code></div>'
+    + configHtml
+    + mcpInfoHtml
     + toolsHtml
     + '<div style="display:flex;align-items:center;justify-content:space-between;padding:6px 20px;border-bottom:1px solid var(--border);background:var(--surface)">'
     + '<span style="font-size:10px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:0.5px">Logs</span>'
@@ -441,6 +570,10 @@ function renderContent() {
     + '<div class="log-viewer" id="logViewer">' + (logLines || '<div class="log-line" style="color:var(--text2)">No logs yet</div>') + '</div>';
 
   scrollLogToBottom();
+}
+
+function capBadge(name, active) {
+  return '<span class="cap-badge ' + (active ? 'active' : 'inactive') + '">' + name + '</span>';
 }
 
 function appendLog(line) {
@@ -491,6 +624,18 @@ async function deleteServer(id) {
   if (selectedId === id) selectedId = null;
   renderSidebar();
   renderContent();
+}
+
+async function toggleEnabled(id, enabled) {
+  await fetch('/api/servers/' + encodeURIComponent(id) + '/enabled', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ enabled }),
+  });
+  if (servers[id]) servers[id].enabled = enabled;
+  renderSidebar();
+  // Refresh after a moment to get updated status
+  setTimeout(refreshServers, 500);
 }
 
 // --- Add Server Modal ---
@@ -549,6 +694,7 @@ function copyUrl(e, url) {
 }
 
 function openProxyHelp() {
+  updateProxyHelpUrls();
   document.getElementById('proxyHelpModal').classList.add('visible');
 }
 
@@ -563,6 +709,7 @@ async function clearLogs(id) {
 }
 
 function escHtml(s) {
+  if (s == null) return '';
   const d = document.createElement('div');
   d.textContent = s;
   return d.innerHTML;

@@ -5,6 +5,8 @@ use std::io;
 use std::path::{Path, PathBuf};
 
 const MCP_SERVERS_KEY: &str = "mcpServers";
+const PORT_KEY: &str = "port";
+pub const DEFAULT_PORT: u16 = 17532;
 
 /// Return the MCPSM config file path: ~/.config/mcpsm/mcp.json
 pub fn config_path() -> io::Result<PathBuf> {
@@ -32,10 +34,18 @@ pub fn load() -> io::Result<(Vec<(String, ServerConfig)>, Value)> {
     load_config_from_path(&path)
 }
 
+/// Extract the port from a config document, defaulting to DEFAULT_PORT.
+pub fn extract_port(doc: &Value) -> u16 {
+    doc.get(PORT_KEY)
+        .and_then(|v| v.as_u64())
+        .and_then(|v| u16::try_from(v).ok())
+        .unwrap_or(DEFAULT_PORT)
+}
+
 /// Save MCP server configs to the MCPSM config file.
-pub fn save(servers: &[(String, ServerConfig)], existing_doc: &Value) -> io::Result<()> {
+pub fn save(servers: &[(String, ServerConfig)], existing_doc: &Value, port: u16) -> io::Result<()> {
     let path = config_path()?;
-    save_config_to_path(&path, servers, existing_doc)
+    save_config_to_path(&path, servers, existing_doc, port)
 }
 
 /// Read MCP server configs from a specific path.
@@ -69,6 +79,7 @@ pub fn save_config_to_path(
     path: &Path,
     servers: &[(String, ServerConfig)],
     existing_doc: &Value,
+    port: u16,
 ) -> io::Result<()> {
     let mut doc = existing_doc.clone();
 
@@ -85,6 +96,11 @@ pub fn save_config_to_path(
         .as_object_mut()
         .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidData, "Config root is not an object"))?;
     obj.insert(MCP_SERVERS_KEY.into(), Value::Object(mcp_obj));
+
+    // Persist port if non-default
+    if port != DEFAULT_PORT {
+        obj.insert(PORT_KEY.into(), Value::Number(port.into()));
+    }
 
     let content = serde_json::to_string_pretty(&doc)
         .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
@@ -160,9 +176,10 @@ mod tests {
                 args: vec!["server.js".into()],
                 env: HashMap::new(),
                 url: None,
+                enabled: true,
             },
         ));
-        save_config_to_path(&path, &updated, &loaded_doc).unwrap();
+        save_config_to_path(&path, &updated, &loaded_doc, DEFAULT_PORT).unwrap();
 
         // Reload and verify
         let (final_servers, final_doc) = load_config_from_path(&path).unwrap();
@@ -185,9 +202,10 @@ mod tests {
                 args: vec![],
                 env: HashMap::new(),
                 url: None,
+                enabled: true,
             },
         )];
-        save_config_to_path(&path, &servers, &doc).unwrap();
+        save_config_to_path(&path, &servers, &doc, DEFAULT_PORT).unwrap();
         assert!(path.exists());
     }
 }

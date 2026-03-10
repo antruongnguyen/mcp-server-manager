@@ -27,6 +27,10 @@ pub fn build_router(state: Arc<AppState>, proxy_handler: ProxyHandler) -> Router
         .route("/api/servers/{id}", delete(handlers::delete_server))
         .route("/api/servers/{id}/logs", get(handlers::get_logs))
         .route("/api/servers/{id}/logs", delete(handlers::clear_logs))
+        .route(
+            "/api/servers/{id}/enabled",
+            post(handlers::set_enabled),
+        )
         .route("/api/templates", get(handlers::list_templates))
         .route("/api/events", get(sse::event_stream))
         .with_state(state)
@@ -34,12 +38,13 @@ pub fn build_router(state: Arc<AppState>, proxy_handler: ProxyHandler) -> Router
         .nest_service("/mcp", mcp_service)
 }
 
-pub async fn serve(state: Arc<AppState>, proxy_handler: ProxyHandler) {
+pub async fn serve(state: Arc<AppState>, proxy_handler: ProxyHandler, port: u16) {
     let app = build_router(state, proxy_handler);
-    let listener = tokio::net::TcpListener::bind("127.0.0.1:17532")
+    let addr = format!("127.0.0.1:{}", port);
+    let listener = tokio::net::TcpListener::bind(&addr)
         .await
-        .expect("Failed to bind web server to 127.0.0.1:17532");
-    tracing::info!("Web dashboard at http://127.0.0.1:17532");
-    tracing::info!("MCP proxy (Streamable HTTP) at http://127.0.0.1:17532/mcp");
+        .unwrap_or_else(|_| panic!("Failed to bind web server to {}", addr));
+    tracing::info!("Web dashboard at http://{}", addr);
+    tracing::info!("MCP proxy (Streamable HTTP) at http://{}/mcp", addr);
     axum::serve(listener, app).await.expect("Web server error");
 }
