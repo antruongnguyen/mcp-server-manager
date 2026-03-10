@@ -17,7 +17,6 @@
     --green: #50d080;
     --yellow: #e0c050;
     --red: #f06060;
-    --orange: #e09050;
     --blue: #60a0f0;
     --radius: 8px;
   }
@@ -101,7 +100,7 @@
   .status-dot.stopped { background: var(--text2); }
   .status-dot.starting, .status-dot.stopping, .status-dot.initializing { background: var(--yellow); }
   .status-dot.running { background: var(--green); }
-  .status-dot.ready { background: var(--blue); }
+  .status-dot.ready { background: var(--green); }
   .status-dot.error { background: var(--red); }
   .server-name { font-size: 13px; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .server-tools-count {
@@ -124,7 +123,7 @@
   .status-badge.stopped { background: var(--surface2); color: var(--text2); }
   .status-badge.starting, .status-badge.stopping, .status-badge.initializing { background: #3d3520; color: var(--yellow); }
   .status-badge.running { background: #1d3520; color: var(--green); }
-  .status-badge.ready { background: #1d2d40; color: var(--blue); }
+  .status-badge.ready { background: #1d3520; color: var(--green); }
   .status-badge.error { background: #3d1d1d; color: var(--red); }
   .server-actions { display: flex; gap: 6px; align-items: center; }
 
@@ -318,9 +317,6 @@
   </symbol>
   <symbol id="icon-chevron-down" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
     <polyline points="6 9 12 15 18 9"/>
-  </symbol>
-  <symbol id="icon-x" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-    <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
   </symbol>
   <symbol id="icon-play" viewBox="0 0 24 24" fill="currentColor" stroke="none">
     <polygon points="6,4 20,12 6,20"/>
@@ -524,6 +520,12 @@ function handleEvent(evt) {
     case 'ServerStatusChanged':
       if (servers[evt.id]) {
         servers[evt.id].status = evt.status;
+        // Clear runtime state when server stops
+        if (evt.status.type === 'Stopped') {
+          servers[evt.id].tools = [];
+          servers[evt.id].peer_info = null;
+          logs[evt.id] = [];
+        }
       } else {
         servers[evt.id] = { config: { command: '', args: [], env: {} }, status: evt.status, tools: [], enabled: true };
         refreshServers();
@@ -703,8 +705,7 @@ function renderContent() {
   if (isRunning) {
     actionBtns += '<button class="icon-btn danger" onclick="stopServer(\'' + escHtml(selectedId) + '\')" title="Stop"><svg class="icon"><use href="#icon-square"/></svg></button>';
   } else {
-    actionBtns += '<button class="btn btn-accent" style="padding:4px 12px;font-size:12px;display:inline-flex;align-items:center;gap:4px" onclick="startServer(\'' + escHtml(selectedId) + '\')">'
-      + '<svg class="icon" style="width:12px;height:12px"><use href="#icon-play"/></svg> Start</button>';
+    actionBtns += '<button class="icon-btn accent" onclick="startServer(\'' + escHtml(selectedId) + '\')" title="Start"><svg class="icon"><use href="#icon-play"/></svg></button>';
   }
   actionBtns += '<button class="icon-btn danger" onclick="confirmDeleteServer(\'' + escHtml(selectedId) + '\')" title="Delete"><svg class="icon"><use href="#icon-trash"/></svg></button>';
 
