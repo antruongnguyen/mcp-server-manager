@@ -39,6 +39,17 @@ The bridge contract lives in `src/bridge/commands.rs` — all interaction goes t
 - **`src/mcp/`** — MCP protocol via rmcp SDK: client wrapper (stdio + HTTP), proxy handler (tool aggregation + routing)
 - **`src/web/`** — axum web server: REST API, SSE, dashboard HTML, MCP endpoint
 
+## Dashboard Theme System
+
+The dashboard uses CSS custom properties with `[data-theme="dark"]` / `[data-theme="light"]` selectors, inspired by the Islands VS Code theme. Theme is applied before first paint via inline `<script>` in `<head>` and persisted in `localStorage` as `mcpsm-theme`.
+
+Key color variable groups:
+- `--bg`, `--surface`, `--surface2`, `--border` — layer hierarchy
+- `--text`, `--text2` — primary/secondary text
+- `--accent`, `--green`, `--yellow`, `--red`, `--blue` — semantic colors
+- `--green-bg`, `--yellow-bg`, `--red-bg`, `--blue-bg` — tinted badge backgrounds
+- `--logo-*` — separate logo-specific colors tuned per theme for header visibility
+
 ## MCP Proxy
 
 MCPSM acts as a unified MCP proxy server at `http://127.0.0.1:{port}/mcp` (port configurable, default 17532):

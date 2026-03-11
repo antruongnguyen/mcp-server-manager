@@ -4,22 +4,60 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>MCPSM — MCP Server Manager</title>
-<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg width='32' height='32' viewBox='0 0 180 180' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Crect width='180' height='180' rx='28' fill='%231e1e2e'/%3E%3Ccircle cx='90' cy='90' r='22' stroke='%237c7cf0' stroke-width='5'/%3E%3Ccircle cx='90' cy='90' r='14' fill='%237c7cf0' opacity='0.3'/%3E%3Cpath d='M90 68L93 75H87Z' fill='%237c7cf0'/%3E%3Cpath d='M90 112L87 105H93Z' fill='%237c7cf0'/%3E%3Cpath d='M68 90L75 87V93Z' fill='%237c7cf0'/%3E%3Cpath d='M112 90L105 93V87Z' fill='%237c7cf0'/%3E%3Cline x1='77' y1='78' x2='52' y2='52' stroke='%2350d080' stroke-width='4' stroke-linecap='round'/%3E%3Crect x='28' y='28' width='28' height='28' rx='6' stroke='%2350d080' stroke-width='4'/%3E%3Cline x1='103' y1='78' x2='128' y2='52' stroke='%2360a0f0' stroke-width='4' stroke-linecap='round'/%3E%3Crect x='124' y='28' width='28' height='28' rx='6' stroke='%2360a0f0' stroke-width='4'/%3E%3Cline x1='77' y1='102' x2='52' y2='128' stroke='%23e0c050' stroke-width='4' stroke-linecap='round'/%3E%3Crect x='28' y='124' width='28' height='28' rx='6' stroke='%23e0c050' stroke-width='4'/%3E%3Cline x1='103' y1='102' x2='128' y2='128' stroke='%23f06060' stroke-width='4' stroke-linecap='round'/%3E%3Crect x='124' y='124' width='28' height='28' rx='6' stroke='%23f06060' stroke-width='4'/%3E%3C/svg%3E">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg width='32' height='32' viewBox='0 0 180 180' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Ccircle cx='90' cy='90' r='22' stroke='%23548af7' stroke-width='5'/%3E%3Ccircle cx='90' cy='90' r='14' fill='%23548af7' opacity='0.3'/%3E%3Cpath d='M90 68L93 75H87Z' fill='%23548af7'/%3E%3Cpath d='M90 112L87 105H93Z' fill='%23548af7'/%3E%3Cpath d='M68 90L75 87V93Z' fill='%23548af7'/%3E%3Cpath d='M112 90L105 93V87Z' fill='%23548af7'/%3E%3Cline x1='77' y1='78' x2='52' y2='52' stroke='%236aab73' stroke-width='4' stroke-linecap='round'/%3E%3Crect x='28' y='28' width='28' height='28' rx='6' stroke='%236aab73' stroke-width='4'/%3E%3Cline x1='103' y1='78' x2='128' y2='52' stroke='%2356a8f5' stroke-width='4' stroke-linecap='round'/%3E%3Crect x='124' y='28' width='28' height='28' rx='6' stroke='%2356a8f5' stroke-width='4'/%3E%3Cline x1='77' y1='102' x2='52' y2='128' stroke='%23f2c55c' stroke-width='4' stroke-linecap='round'/%3E%3Crect x='28' y='124' width='28' height='28' rx='6' stroke='%23f2c55c' stroke-width='4'/%3E%3Cline x1='103' y1='102' x2='128' y2='128' stroke='%23fa6675' stroke-width='4' stroke-linecap='round'/%3E%3Crect x='124' y='124' width='28' height='28' rx='6' stroke='%23fa6675' stroke-width='4'/%3E%3C/svg%3E">
 <style>
   :root {
-    --bg: #1e1e2e;
-    --surface: #282840;
-    --surface2: #313150;
-    --border: #3e3e5e;
-    --text: #e0e0f0;
-    --text2: #a0a0c0;
-    --accent: #7c7cf0;
-    --accent-hover: #9090ff;
-    --green: #50d080;
-    --yellow: #e0c050;
-    --red: #f06060;
-    --blue: #60a0f0;
     --radius: 8px;
+  }
+  /* Dark theme (default) — based on Islands Dark */
+  [data-theme="dark"] {
+    --bg: #111214;
+    --surface: #1b1c1f;
+    --surface2: #252629;
+    --border: #393b40;
+    --text: #e8e9ed;
+    --text2: #a1a4ab;
+    --accent: #548af7;
+    --accent-hover: #70aeff;
+    --green: #5ec26a;
+    --yellow: #f5d26a;
+    --red: #fa6675;
+    --blue: #56a8f5;
+    --green-bg: #1e2e22;
+    --yellow-bg: #2e2a1c;
+    --red-bg: #2e1c1e;
+    --blue-bg: #1c2535;
+    --modal-overlay: rgba(0,0,0,0.7);
+    --logo-accent: #7ea8ff;
+    --logo-green: #72d67e;
+    --logo-blue: #72bbff;
+    --logo-yellow: #ffd970;
+    --logo-red: #ff8090;
+  }
+  /* Light theme — based on Islands Light */
+  [data-theme="light"] {
+    --bg: #edeef2;
+    --surface: #ffffff;
+    --surface2: #e8e9ee;
+    --border: #d0d2d8;
+    --text: #080808;
+    --text2: #4a4d5a;
+    --accent: #0033b3;
+    --accent-hover: #002d9e;
+    --green: #18a030;
+    --yellow: #b08a10;
+    --red: #e00000;
+    --blue: #0066cc;
+    --green-bg: #ddf2e2;
+    --yellow-bg: #fdf3cd;
+    --red-bg: #fde0e0;
+    --blue-bg: #d8e8f8;
+    --modal-overlay: rgba(0,0,0,0.35);
+    --logo-accent: #3060cc;
+    --logo-green: #20964a;
+    --logo-blue: #2878d0;
+    --logo-yellow: #c09820;
+    --logo-red: #d03040;
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body {
@@ -37,7 +75,7 @@
   .header-actions { display: flex; gap: 8px; align-items: center; }
   .proxy-badge {
     font-size: 11px; padding: 3px 10px; border-radius: 12px;
-    background: #1d3520; color: var(--green); font-weight: 500;
+    background: var(--green-bg); color: var(--green); font-weight: 500;
     display: flex; align-items: center; gap: 6px;
   }
   .proxy-help-btn {
@@ -122,10 +160,10 @@
     font-weight: 500;
   }
   .status-badge.stopped { background: var(--surface2); color: var(--text2); }
-  .status-badge.starting, .status-badge.stopping, .status-badge.initializing { background: #3d3520; color: var(--yellow); }
-  .status-badge.running { background: #1d3520; color: var(--green); }
-  .status-badge.ready { background: #1d3520; color: var(--green); }
-  .status-badge.error { background: #3d1d1d; color: var(--red); }
+  .status-badge.starting, .status-badge.stopping, .status-badge.initializing { background: var(--yellow-bg); color: var(--yellow); }
+  .status-badge.running { background: var(--green-bg); color: var(--green); }
+  .status-badge.ready { background: var(--green-bg); color: var(--green); }
+  .status-badge.error { background: var(--red-bg); color: var(--red); }
   .server-actions { display: flex; gap: 8px; align-items: center; }
 
   /* Enable toggle switch */
@@ -176,8 +214,8 @@
     padding: 2px 6px; border-radius: 3px;
     background: var(--surface2); color: var(--text2);
   }
-  .transport-badge.stdio { background: #1d3520; color: var(--green); }
-  .transport-badge.http { background: #1d2d40; color: var(--blue); }
+  .transport-badge.stdio { background: var(--green-bg); color: var(--green); }
+  .transport-badge.http { background: var(--blue-bg); color: var(--blue); }
 
   /* Tabs */
   .tab-bar {
@@ -215,10 +253,10 @@
     display: inline-block; font-size: 9px; padding: 1px 5px; border-radius: 3px;
     font-weight: 500; margin-right: 4px;
   }
-  .annot-badge.readonly { background: #1d3520; color: var(--green); }
-  .annot-badge.destructive { background: #3d1d1d; color: var(--red); }
-  .annot-badge.idempotent { background: #1d2d40; color: var(--blue); }
-  .annot-badge.openworld { background: #3d3520; color: var(--yellow); }
+  .annot-badge.readonly { background: var(--green-bg); color: var(--green); }
+  .annot-badge.destructive { background: var(--red-bg); color: var(--red); }
+  .annot-badge.idempotent { background: var(--blue-bg); color: var(--blue); }
+  .annot-badge.openworld { background: var(--yellow-bg); color: var(--yellow); }
 
   /* Tab placeholder */
   .tab-placeholder {
@@ -245,7 +283,7 @@
   }
   .log-viewer.expanded { flex: 2; }
   .log-viewer.collapsed { display: none; }
-  .log-line { white-space: pre-wrap; word-break: break-all; color: var(--text2); }
+  .log-line { white-space: pre-wrap; word-break: break-all; color: var(--text); opacity: 0.85; }
   .content-body { flex: 1; display: flex; flex-direction: column; overflow: hidden; min-height: 0; }
   .empty-state {
     display: flex; align-items: center; justify-content: center;
@@ -254,7 +292,7 @@
 
   /* Modal */
   .modal-overlay {
-    display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6);
+    display: none; position: fixed; inset: 0; background: var(--modal-overlay);
     z-index: 100; align-items: center; justify-content: center;
   }
   .modal-overlay.visible { display: flex; }
@@ -296,6 +334,13 @@
   .confirm-modal .modal { width: 400px; }
   .confirm-message { font-size: 13px; color: var(--text2); line-height: 1.6; margin-bottom: 16px; }
 </style>
+<script>
+  // Apply theme before first paint to prevent flash
+  (function() {
+    var t = localStorage.getItem('mcpsm-theme') || 'dark';
+    document.documentElement.setAttribute('data-theme', t);
+  })();
+</script>
 </head>
 <body>
 
@@ -322,30 +367,35 @@
   <symbol id="icon-play" viewBox="0 0 24 24" fill="currentColor" stroke="none">
     <polygon points="6,4 20,12 6,20"/>
   </symbol>
+  <symbol id="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+  </symbol>
+  <symbol id="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+  </symbol>
 </svg>
 
 <header>
   <div style="display:flex;align-items:center;gap:10px">
     <svg width="28" height="28" viewBox="0 0 180 180" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <rect width="180" height="180" rx="28" fill="var(--surface2)"/>
-      <circle cx="90" cy="90" r="22" stroke="var(--accent)" stroke-width="3.5"/>
-      <circle cx="90" cy="90" r="14" fill="var(--accent)" opacity="0.3"/>
-      <path d="M90 68L93 75H87Z" fill="var(--accent)"/>
-      <path d="M90 112L87 105H93Z" fill="var(--accent)"/>
-      <path d="M68 90L75 87V93Z" fill="var(--accent)"/>
-      <path d="M112 90L105 93V87Z" fill="var(--accent)"/>
-      <line x1="77" y1="78" x2="52" y2="52" stroke="var(--green)" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="4 3"/>
-      <rect x="28" y="28" width="28" height="28" rx="6" stroke="var(--green)" stroke-width="2.5"/>
-      <line x1="35" y1="38" x2="49" y2="38" stroke="var(--green)" stroke-width="2" stroke-linecap="round"/>
-      <line x1="103" y1="78" x2="128" y2="52" stroke="var(--blue)" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="4 3"/>
-      <rect x="124" y="28" width="28" height="28" rx="6" stroke="var(--blue)" stroke-width="2.5"/>
-      <line x1="131" y1="38" x2="145" y2="38" stroke="var(--blue)" stroke-width="2" stroke-linecap="round"/>
-      <line x1="77" y1="102" x2="52" y2="128" stroke="var(--yellow)" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="4 3"/>
-      <rect x="28" y="124" width="28" height="28" rx="6" stroke="var(--yellow)" stroke-width="2.5"/>
-      <line x1="35" y1="134" x2="49" y2="134" stroke="var(--yellow)" stroke-width="2" stroke-linecap="round"/>
-      <line x1="103" y1="102" x2="128" y2="128" stroke="var(--red)" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="4 3"/>
-      <rect x="124" y="124" width="28" height="28" rx="6" stroke="var(--red)" stroke-width="2.5"/>
-      <line x1="131" y1="134" x2="145" y2="134" stroke="var(--red)" stroke-width="2" stroke-linecap="round"/>
+      <circle cx="90" cy="90" r="22" stroke="var(--logo-accent)" stroke-width="5"/>
+      <circle cx="90" cy="90" r="13" fill="var(--logo-accent)" opacity="0.35"/>
+      <path d="M90 66L94 76H86Z" fill="var(--logo-accent)"/>
+      <path d="M90 114L86 104H94Z" fill="var(--logo-accent)"/>
+      <path d="M66 90L76 86V94Z" fill="var(--logo-accent)"/>
+      <path d="M114 90L104 94V86Z" fill="var(--logo-accent)"/>
+      <line x1="76" y1="76" x2="52" y2="52" stroke="var(--logo-green)" stroke-width="4" stroke-linecap="round"/>
+      <rect x="28" y="28" width="28" height="28" rx="6" stroke="var(--logo-green)" stroke-width="4"/>
+      <line x1="35" y1="39" x2="49" y2="39" stroke="var(--logo-green)" stroke-width="3" stroke-linecap="round"/>
+      <line x1="103" y1="76" x2="128" y2="52" stroke="var(--logo-blue)" stroke-width="4" stroke-linecap="round"/>
+      <rect x="124" y="28" width="28" height="28" rx="6" stroke="var(--logo-blue)" stroke-width="4"/>
+      <line x1="131" y1="39" x2="145" y2="39" stroke="var(--logo-blue)" stroke-width="3" stroke-linecap="round"/>
+      <line x1="76" y1="104" x2="52" y2="128" stroke="var(--logo-yellow)" stroke-width="4" stroke-linecap="round"/>
+      <rect x="28" y="124" width="28" height="28" rx="6" stroke="var(--logo-yellow)" stroke-width="4"/>
+      <line x1="35" y1="135" x2="49" y2="135" stroke="var(--logo-yellow)" stroke-width="3" stroke-linecap="round"/>
+      <line x1="103" y1="104" x2="128" y2="128" stroke="var(--logo-red)" stroke-width="4" stroke-linecap="round"/>
+      <rect x="124" y="124" width="28" height="28" rx="6" stroke="var(--logo-red)" stroke-width="4"/>
+      <line x1="131" y1="135" x2="145" y2="135" stroke="var(--logo-red)" stroke-width="3" stroke-linecap="round"/>
     </svg>
     <h1>MCP Server Manager</h1>
   </div>
@@ -354,6 +404,9 @@
       Help
       <button class="proxy-help-btn" onclick="openProxyHelp()" title="Connection instructions">?</button>
     </div>
+    <button class="icon-btn" onclick="toggleTheme()" id="themeToggle" title="Toggle theme">
+      <svg class="icon"><use href="#icon-sun"/></svg>
+    </button>
   </div>
 </header>
 
@@ -486,6 +539,7 @@ function mcpUrl() { return window.location.origin + '/mcp'; }
 
 // --- Init ---
 async function init() {
+  updateThemeIcon();
   await loadTemplates();
   await refreshServers();
   connectSSE();
@@ -1018,6 +1072,22 @@ function escHtml(s) {
   const d = document.createElement('div');
   d.textContent = s;
   return d.innerHTML;
+}
+
+function toggleTheme() {
+  const current = document.documentElement.getAttribute('data-theme') || 'dark';
+  const next = current === 'dark' ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', next);
+  localStorage.setItem('mcpsm-theme', next);
+  updateThemeIcon();
+}
+
+function updateThemeIcon() {
+  const btn = document.getElementById('themeToggle');
+  if (!btn) return;
+  const theme = document.documentElement.getAttribute('data-theme') || 'dark';
+  btn.innerHTML = '<svg class="icon"><use href="#icon-' + (theme === 'dark' ? 'sun' : 'moon') + '"/></svg>';
+  btn.title = theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme';
 }
 
 init();

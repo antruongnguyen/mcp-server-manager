@@ -7,8 +7,9 @@ A native macOS application that manages [Model Context Protocol](https://modelco
 - **Unified MCP proxy** — single endpoint aggregates tools from all child servers
 - **Streamable HTTP transport** — full MCP protocol support (POST/GET/DELETE) with session management via [rmcp](https://github.com/anthropics/rmcp) SDK
 - **Tool namespacing** — tools from each server are prefixed (`server_id__tool_name`) to avoid collisions
-- **Web dashboard** — start/stop servers, enable/disable toggle, view rich tool info, monitor logs
+- **Web dashboard** — start/stop servers, enable/disable toggle, view rich tool info, monitor logs, dark/light theme
 - **Rich tool info** — tool descriptions, annotations (read-only, destructive, idempotent), MCP server info panel with capabilities
+- **Dark/light theme** — Islands-inspired color scheme with theme toggle in header (persisted in localStorage)
 - **Server auto-start** — enabled servers start automatically on launch
 - **Enable/disable toggle** — per-server toggle in dashboard and config; disabled servers won't auto-start
 - **Configurable port** — set `"port": 8080` in config to change the dashboard/proxy port (default: 17532)

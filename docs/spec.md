@@ -67,7 +67,9 @@ MCPSM (MCP Server Manager) is a native macOS status bar application that manages
 
 ### F9. Web Dashboard
 - Embedded HTML (compiled into binary via `include_str!`)
-- Dark theme with CSS custom properties
+- Dark/light theme with CSS custom properties, inspired by [Islands theme](https://github.com/gu-xiaohui/islands-theme)
+- Theme toggle button in header (sun/moon icon), persisted in `localStorage`
+- Separate `--logo-*` CSS variables for header logo visibility tuned per theme
 - Sidebar: server list with status dots, tool counts, disabled dimming
 - Content area: status badge, start/stop buttons, enable toggle, config details, MCP info, tools, logs
 - Modals: Add Server (with template selector), Proxy Help (with setup instructions)
