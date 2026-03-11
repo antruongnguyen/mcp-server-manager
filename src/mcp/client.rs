@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::process::Stdio;
 
 use rmcp::model::{CallToolRequestParams, CallToolResult, ClientInfo, Implementation, ServerInfo, Tool};
@@ -22,16 +23,24 @@ pub struct StdioConnection {
 /// We manually spawn the process (to capture stderr for logging), then pass
 /// `(stdout, stdin)` as a transport to rmcp's `serve()` which does the
 /// MCP initialize handshake automatically.
-pub async fn connect_stdio(config: &ServerConfig) -> anyhow::Result<StdioConnection> {
+///
+/// `shell_env` provides the full user shell environment (captured at startup)
+/// so child processes can find tools installed via nvm, pyenv, Homebrew, etc.
+pub async fn connect_stdio(
+    config: &ServerConfig,
+    shell_env: &HashMap<String, String>,
+) -> anyhow::Result<StdioConnection> {
     let command = config.command.as_deref()
         .ok_or_else(|| anyhow::anyhow!("No command specified for stdio server"))?;
 
     let mut cmd = tokio::process::Command::new(command);
     cmd.args(&config.args);
+    cmd.env_clear();
+    cmd.envs(shell_env.iter());
+    // Config env vars override captured shell env
     if !config.env.is_empty() {
         cmd.envs(&config.env);
     }
-    augment_path(&mut cmd);
     cmd.stdin(Stdio::piped());
     cmd.stdout(Stdio::piped());
     cmd.stderr(Stdio::piped());
@@ -108,23 +117,4 @@ pub async fn call_tool(
     }
     let result = client.call_tool(params).await?;
     Ok(result)
-}
-
-/// Add common Node.js paths to PATH so `npx` can be found.
-fn augment_path(cmd: &mut tokio::process::Command) {
-    let current_path = std::env::var("PATH").unwrap_or_default();
-    let extra_paths = [
-        "/usr/local/bin",
-        "/opt/homebrew/bin",
-        "/opt/homebrew/sbin",
-    ];
-
-    let mut paths: Vec<&str> = extra_paths.to_vec();
-    for segment in current_path.split(':') {
-        if !paths.contains(&segment) {
-            paths.push(segment);
-        }
-    }
-
-    cmd.env("PATH", paths.join(":"));
 }

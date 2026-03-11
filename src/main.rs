@@ -23,6 +23,10 @@ fn main() {
 
     tracing::info!("MCPSM starting");
 
+    // Capture the user's full shell environment (before tokio runtime).
+    // This is critical for .app bundles which don't inherit the user's PATH.
+    let shell_env = Arc::new(core::shell_env::capture_shell_env());
+
     // Early config read to extract port
     let port = config::load()
         .map(|(_, doc)| config::extract_port(&doc))
@@ -57,6 +61,7 @@ fn main() {
     let evt_tx_clone = evt_tx.clone();
     let shared_servers_clone = shared_servers.clone();
     let shared_mcp_clients_clone = shared_mcp_clients.clone();
+    let shell_env_clone = shell_env.clone();
 
     // Spawn tokio runtime on a background thread
     std::thread::spawn(move || {
@@ -90,6 +95,7 @@ fn main() {
                 shared_mcp_clients,
                 tool_change_tx,
                 port,
+                shell_env_clone,
             );
             tokio::select! {
                 _ = manager.run() => {

@@ -12,6 +12,8 @@ cargo test               # Run all 9 unit tests
 cargo test config        # Run config tests only
 cargo test log_buffer    # Run log buffer tests only
 cargo test templates     # Run template tests only
+./scripts/build-app.sh   # Build MCPSM.app bundle (release)
+./scripts/generate-icons.sh  # Regenerate status bar PNGs + .icns from SVGs
 ```
 
 ## Architecture
@@ -33,9 +35,9 @@ The bridge contract lives in `src/bridge/commands.rs` — all interaction goes t
 
 ## Module Layout
 
-- **`src/core/`** — Business logic: config I/O, process spawn/kill, log ring buffer, server manager async loop, config file watcher
+- **`src/core/`** — Business logic: config I/O, process spawn/kill, log ring buffer, server manager async loop, config file watcher, shell environment capture
 - **`src/bridge/`** — Channel contract: `AppCommand` + `BackendEvent` enums
-- **`src/gui/`** — macOS status bar ("Open Dashboard" + "Edit Config" + "Quit" with graceful shutdown)
+- **`src/gui/`** — macOS status bar (template icon, SF Symbol menu icons, "Open Dashboard" + "Edit Config" + "Quit" with graceful shutdown)
 - **`src/mcp/`** — MCP protocol via rmcp SDK: client wrapper (stdio + HTTP), proxy handler (tool aggregation + routing)
 - **`src/web/`** — axum web server: REST API, SSE, dashboard HTML, MCP endpoint
 
@@ -87,13 +89,23 @@ Servers are spawned via `tokio::process::Command` with piped stdin/stdout/stderr
 - **stdin/stdout** — reserved for MCP JSON-RPC protocol communication (rmcp SDK)
 - **stderr** — captured as log lines by a tokio task, fed into the manager's `select!` loop
 
-PATH is augmented with `/usr/local/bin`, `/opt/homebrew/bin` for `npx` discovery. Graceful shutdown: SIGTERM → 5s wait → SIGKILL.
+Shell environment is captured once at startup via `core::shell_env::capture_shell_env()` (runs `$SHELL -l -c env`), then passed to all child processes via `env_clear()` + `envs()`. This ensures tools installed via nvm, pyenv, Homebrew, etc. are found even when running as a `.app` bundle. Config env vars override the captured environment. Graceful shutdown: SIGTERM → 5s wait → SIGKILL.
 
-## Status Bar Communication
+## Status Bar
 
+- Template icon (18×18 / 36×36 PNG) embedded via `include_bytes!`, loaded as NSImage with `setTemplate(true)` for automatic light/dark mode
+- SF Symbol icons on menu items: "Open Dashboard" (gauge), "Edit Config" (doc.badge.gearshape), "Quit MCPSM" (power)
+- Disabled "MCP Server Manager" title item at top of menu
 - `static CMD_TX: OnceLock<UnboundedSender<AppCommand>>` — set from main.rs, used by Quit to send Shutdown
 - `static DASHBOARD_PORT: OnceLock<u16>` — set from main.rs, used for dynamic dashboard URL
 - Ctrl+C signal handler also sends `AppCommand::Shutdown`
+
+## .app Bundle
+
+`Info.plist` at project root with `LSUIElement: true` (no Dock icon). Built via `scripts/build-app.sh`:
+- `MCPSM.app/Contents/MacOS/mcpsm` — release binary
+- `MCPSM.app/Contents/Resources/mcpsm.icns` — app icon
+- `MCPSM.app/Contents/Info.plist` — bundle metadata
 
 ## objc2 Patterns (Critical)
 

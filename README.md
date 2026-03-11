@@ -15,7 +15,9 @@ A native macOS application that manages [Model Context Protocol](https://modelco
 - **Start/Stop All** — header buttons for bulk server control (conditional visibility based on server states)
 - **Configurable port** — set `"port": 8080` in config to change the dashboard/proxy port (default: 17532)
 - **Config file watching** — external edits to the config file are detected and applied automatically (smart diff: only affected servers restart)
-- **Status bar app** — macOS status bar with "Open Dashboard", "Edit Config", and "Quit" menu items
+- **Status bar app** — macOS status bar with template icon, SF Symbol menu icons, "Open Dashboard", "Edit Config", and "Quit"
+- **Shell environment capture** — captures user's full login shell environment at startup, so child processes find tools installed via nvm, pyenv, Homebrew, etc. (critical for `.app` bundles)
+- **`.app` bundle** — builds as a proper macOS application bundle (`MCPSM.app`) with app icon and `LSUIElement` (no Dock icon)
 - **Edit Config** — opens `~/.config/mcpsm/mcp.json` in your default editor from the status bar
 - **Real-time log viewer** — monospaced log panel with auto-scroll (last 200 lines per server)
 - **Built-in templates** — pre-configured servers for Sequential Thinking, Knowledge Graph Memory, and Context7
@@ -33,6 +35,15 @@ A native macOS application that manages [Model Context Protocol](https://modelco
 ```bash
 cargo build --release
 ```
+
+### Building as .app Bundle
+
+```bash
+./scripts/build-app.sh
+open target/release/MCPSM.app
+```
+
+This creates a proper macOS application bundle with app icon and `LSUIElement` (no Dock icon). The `.app` bundle captures your shell environment at launch, so tools installed via nvm, pyenv, Homebrew, etc. work correctly.
 
 ## Running
 
@@ -186,19 +197,20 @@ External MCP Client (Claude Code, Cline, etc.)
 
 ```
 src/
-├── main.rs                     # Entry point: config read, signal handler, watcher, tokio thread, status bar
+├── main.rs                     # Entry point: config read, shell env capture, signal handler, watcher, tokio thread, status bar
 ├── core/
 │   ├── config.rs               # Config I/O (~/.config/mcpsm/mcp.json), port extraction
 │   ├── server.rs               # ServerConfig, ServerStatus, ToolInfo, McpPeerInfo types
 │   ├── process.rs              # Child process management (SIGTERM/SIGKILL, stderr reader)
 │   ├── log_buffer.rs           # Ring buffer (200 lines per server)
+│   ├── shell_env.rs            # Shell environment capture ($SHELL -l -c env)
 │   ├── templates.rs            # Built-in server templates
 │   ├── manager.rs              # Async orchestrator: auto-start, config reload, enable/disable
 │   └── watcher.rs              # Config file watcher (notify crate, kqueue on macOS)
 ├── bridge/
 │   └── commands.rs             # AppCommand + BackendEvent enums
 ├── gui/
-│   └── status_bar.rs           # macOS status bar (Open Dashboard, Edit Config, Quit)
+│   └── status_bar.rs           # macOS status bar (template icon, SF Symbols, Open Dashboard, Edit Config, Quit)
 ├── mcp/
 │   ├── client.rs               # rmcp SDK McpClient wrapper (stdio + HTTP connect)
 │   └── proxy.rs                # Tool aggregation + request routing (ProxyHandler)

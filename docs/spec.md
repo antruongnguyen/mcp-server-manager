@@ -79,8 +79,9 @@ MCPSM (MCP Server Manager) is a native macOS status bar application that manages
 - SSE connection for real-time updates (status, tools, logs)
 
 ### F10. Status Bar App
-- Native macOS NSStatusItem with "MCP" title
-- Menu items: "Open Dashboard", "Edit Config", separator, "Quit MCPSM" (⌘Q)
+- Native macOS NSStatusItem with template icon (18×18 / 36×36 PNG, `setTemplate(true)` for automatic light/dark mode)
+- SF Symbol icons on menu items: "Open Dashboard" (gauge), "Edit Config" (doc.badge.gearshape), "Quit MCPSM" (power)
+- Disabled "MCP Server Manager" title item at top of menu
 - Uses OnceLock statics for cmd_tx and port (set from main.rs before NSApp run loop)
 
 ### F11. Graceful Shutdown
@@ -105,6 +106,19 @@ MCPSM (MCP Server Manager) is a native macOS status bar application that manages
 - Atomic writes: temp file + rename
 - Preserves unknown top-level JSON keys (uses `serde_json::Value` for outer document)
 - Auto-saves on: add, update, delete, disabled toggle
+
+### F15. Shell Environment Capture
+- Runs `$SHELL -l -c env` synchronously at startup (before tokio runtime)
+- Captures the user's full login shell environment into a `HashMap<String, String>`
+- Child processes inherit the captured environment via `env_clear()` + `envs()`
+- Config `env` vars override the captured environment
+- Critical for `.app` bundles which don't inherit the user's shell PATH
+- Fallback: hardcoded PATH augmentation + essential vars (HOME, USER, etc.) if shell capture fails
+
+### F16. `.app` Bundle
+- `Info.plist` with `LSUIElement: true` (no Dock icon), `NSHighResolutionCapable: true`
+- `scripts/build-app.sh` assembles `MCPSM.app` from release binary + icon + plist
+- `scripts/generate-icons.sh` regenerates status bar PNGs + `.icns` from SVG sources
 
 ---
 
@@ -175,7 +189,7 @@ MCPSM (MCP Server Manager) is a native macOS status bar application that manages
 ### NFR4. Security
 - Binds to `127.0.0.1` only (not `0.0.0.0`) — local access only
 - No authentication (local-only design assumption)
-- Child process environment is explicitly controlled (only configured env vars + augmented PATH)
+- Child process environment is fully captured from user's login shell at startup, with config env vars overriding; `env_clear()` ensures no leakage of process-specific vars
 
 ### NFR5. Observability
 - Structured logging via `tracing` crate (INFO level by default, configurable via `RUST_LOG`)

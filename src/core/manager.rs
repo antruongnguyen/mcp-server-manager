@@ -48,6 +48,8 @@ pub struct ServerManager {
     port: u16,
     /// Tracks the last time we saved config, to suppress watcher events from our own writes.
     last_save_instant: std::time::Instant,
+    /// Captured shell environment for child process spawning.
+    shell_env: Arc<HashMap<String, String>>,
 }
 
 struct ManagedServer {
@@ -126,6 +128,7 @@ impl ServerManager {
         shared_mcp_clients: SharedMcpClients,
         tool_change_tx: tokio::sync::watch::Sender<()>,
         port: u16,
+        shell_env: Arc<HashMap<String, String>>,
     ) -> Self {
         let (log_tx, log_rx) = tokio::sync::mpsc::unbounded_channel();
         let (connect_result_tx, connect_result_rx) = tokio::sync::mpsc::unbounded_channel();
@@ -144,6 +147,7 @@ impl ServerManager {
             last_save_instant: std::time::Instant::now()
                 .checked_sub(std::time::Duration::from_secs(10))
                 .unwrap_or_else(std::time::Instant::now),
+            shell_env,
         }
     }
 
@@ -680,10 +684,11 @@ impl ServerManager {
         let id_owned = id.to_string();
         let connect_result_tx = self.connect_result_tx.clone();
         let log_tx = self.log_tx.clone();
+        let shell_env = self.shell_env.clone();
 
         tokio::spawn(async move {
             let result = async {
-                let conn = client::connect_stdio(&config_clone)
+                let conn = client::connect_stdio(&config_clone, &shell_env)
                     .await
                     .map_err(|e| format!("Failed to connect: {}", e))?;
 

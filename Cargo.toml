@@ -8,12 +8,12 @@ edition = "2024"
 objc2 = "0.6"
 objc2-foundation = { version = "0.3", features = [
     "NSString", "NSObject", "NSGeometry", "NSNotification",
-    "NSThread", "NSTimer", "NSDate",
+    "NSThread", "NSTimer", "NSDate", "NSData",
 ] }
 objc2-app-kit = { version = "0.3", features = [
     "NSApplication", "NSMenu", "NSMenuItem", "NSImage",
     "NSRunningApplication", "NSStatusBar", "NSStatusItem",
-    "NSStatusBarButton",
+    "NSStatusBarButton", "NSButton", "NSControl", "NSCell",
 ] }
 tokio = { version = "1", features = ["full"] }
 tokio-stream = { version = "0.1", features = ["sync"] }
@@ -35,6 +35,11 @@ rmcp = { version = "1.1", features = [
     "reqwest",
 ] }
 anyhow = "1"
+
+[profile.release]
+opt-level = 3
+lto = true
+strip = true
 
 [dev-dependencies]
 tempfile = "3"
