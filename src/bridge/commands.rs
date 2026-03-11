@@ -32,4 +32,5 @@ pub enum BackendEvent {
     McpToolsChanged { id: String, tools: Vec<ToolInfo> },
     McpServerReady { id: String },
     Error { message: String },
+    Shutdown,
 }

@@ -199,6 +199,9 @@ impl ServerManager {
         match cmd {
             AppCommand::Shutdown => {
                 tracing::info!("ServerManager shutting down");
+                send(&self.evt_tx, BackendEvent::Shutdown);
+                // Small yield to let SSE flush the shutdown event to connected clients
+                tokio::task::yield_now().await;
                 self.stop_all_servers().await;
                 true
             }
@@ -482,11 +485,8 @@ impl ServerManager {
                     if let Some(server) = self.servers.get_mut(id) {
                         server.config.disabled = new_config.disabled;
                     }
-                    // disabled toggle from config reload: start if newly enabled and not running,
-                    // stop if newly disabled and running
-                    if !new_config.disabled && !was_running {
-                        self.handle_start_server(id).await;
-                    } else if new_config.disabled && was_running {
+                    // Disabling stops a running server; enabling does NOT auto-start
+                    if new_config.disabled && was_running {
                         self.handle_stop_server(id).await;
                     }
                 }
@@ -582,10 +582,20 @@ impl ServerManager {
     }
 
     async fn handle_set_disabled(&mut self, id: &str, disabled: bool) {
+        let was_running = self
+            .servers
+            .get(id)
+            .is_some_and(|s| s.status.is_running());
+
         if let Some(server) = self.servers.get_mut(id) {
             server.config.disabled = disabled;
         } else {
             return;
+        }
+
+        // Disabling a running server stops it; enabling does NOT auto-start
+        if disabled && was_running {
+            self.handle_stop_server(id).await;
         }
 
         self.handle_save_config();

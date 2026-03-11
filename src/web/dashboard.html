@@ -73,18 +73,6 @@
   }
   header h1 { font-size: 16px; font-weight: 600; }
   .header-actions { display: flex; gap: 8px; align-items: center; }
-  .proxy-badge {
-    font-size: 11px; padding: 3px 10px; border-radius: 12px;
-    background: var(--green-bg); color: var(--green); font-weight: 500;
-    display: flex; align-items: center; gap: 6px;
-  }
-  .proxy-help-btn {
-    width: 18px; height: 18px; border-radius: 50%; border: 1px solid var(--green);
-    background: transparent; color: var(--green); font-size: 11px; font-weight: 700;
-    cursor: pointer; display: inline-flex; align-items: center; justify-content: center;
-    line-height: 1; transition: background 0.15s;
-  }
-  .proxy-help-btn:hover { background: var(--green); color: var(--bg); }
   .btn {
     padding: 6px 14px; border: 1px solid var(--border); border-radius: var(--radius);
     background: var(--surface2); color: var(--text); cursor: pointer;
@@ -351,6 +339,58 @@
   /* Confirm modal */
   .confirm-modal .modal { width: 400px; }
   .confirm-message { font-size: 13px; color: var(--text2); line-height: 1.6; margin-bottom: 16px; }
+
+  /* Memory badge in header */
+  .mem-badge {
+    font-size: 12px; padding: 3px 10px; border-radius: 12px;
+    background: var(--blue-bg); color: var(--blue); font-weight: 500;
+    display: flex; align-items: center; gap: 6px;
+    font-variant-numeric: tabular-nums;
+  }
+  .mem-badge .mem-label { font-size: 10px; opacity: 0.7; }
+  .mem-badge .mem-sep { opacity: 0.4; }
+
+  /* Server memory in content-header */
+  .server-mem {
+    font-size: 12px; padding: 3px 10px; border-radius: 12px;
+    background: var(--blue-bg); color: var(--blue); font-weight: 500;
+    font-variant-numeric: tabular-nums;
+    display: inline-flex; align-items: center; gap: 5px;
+  }
+  .server-mem .mem-label { font-size: 10px; opacity: 0.7; }
+
+  /* Setup panel (inline in content area) */
+  .setup-panel { padding: 24px; overflow-y: auto; flex: 1; }
+  .setup-panel h2 { font-size: 16px; font-weight: 600; margin-bottom: 16px; }
+  .setup-section { margin-bottom: 16px; }
+  .setup-section-title {
+    font-size: 12px; font-weight: 600; color: var(--text); margin-bottom: 6px;
+  }
+  .setup-code-row {
+    display: flex; align-items: center; gap: 8px; margin-bottom: 8px;
+  }
+  .setup-code {
+    flex: 1; background: var(--bg); padding: 6px 10px; border-radius: var(--radius);
+    font-family: "SF Mono", "Menlo", "Consolas", monospace; font-size: 12px;
+    color: var(--text); line-height: 1.5; white-space: pre-wrap; word-break: break-all;
+  }
+  .setup-note {
+    font-size: 11px; color: var(--text2); padding: 10px; background: var(--bg);
+    border-radius: var(--radius); line-height: 1.5;
+  }
+
+  /* Shutdown overlay */
+  .shutdown-overlay {
+    position: fixed; inset: 0; z-index: 200;
+    background: var(--bg); display: flex; align-items: center; justify-content: center;
+    flex-direction: column; gap: 12px;
+  }
+  .shutdown-overlay .shutdown-msg {
+    font-size: 15px; color: var(--text2); font-weight: 500;
+  }
+  .shutdown-overlay .shutdown-hint {
+    font-size: 12px; color: var(--text2); opacity: 0.6;
+  }
 </style>
 <script>
   // Apply theme before first paint to prevent flash
@@ -421,13 +461,18 @@
     <h1>MCP Server Manager</h1>
   </div>
   <div class="header-actions">
+    <span class="mem-badge" id="memBadge" title="RAM usage" style="display:none">
+      <span class="mem-label">App</span><span id="memApp">—</span>
+      <span class="mem-sep">|</span>
+      <span class="mem-label">Servers</span><span id="memServers">—</span>
+    </span>
     <button class="labeled-btn accent" id="startAllBtn" onclick="startAllServers()" title="Start All Enabled Servers" style="display:none">
       <svg class="icon"><use href="#icon-play"/></svg> Start All
     </button>
     <button class="labeled-btn danger" id="stopAllBtn" onclick="stopAllServers()" title="Stop All Started Servers" style="display:none">
       <svg class="icon"><use href="#icon-square"/></svg> Stop All
     </button>
-    <button class="labeled-btn setup" onclick="openProxyHelp()" title="Connection instructions">
+    <button class="labeled-btn setup" onclick="showSetup()" title="Connection instructions">
       <svg class="icon"><use href="#icon-help"/></svg> Setup
     </button>
     <button class="icon-btn" onclick="toggleTheme()" id="themeToggle" title="Toggle theme">
@@ -512,43 +557,6 @@
   </div>
 </div>
 
-<!-- Proxy Help Modal -->
-<div class="modal-overlay" id="proxyHelpModal">
-  <div class="modal" style="width:520px">
-    <h3>MCP Proxy Endpoint</h3>
-    <div style="font-size:13px;line-height:1.7;color:var(--text2)">
-      <p style="margin-bottom:12px">All MCP clients connect to a single endpoint. Tools from all running servers are aggregated automatically.</p>
-      <div style="margin-bottom:12px">
-        <div style="margin-bottom:4px"><strong style="color:var(--text)">Streamable HTTP</strong> <span style="font-size:11px">(supports POST, GET with SSE, and DELETE)</span></div>
-        <div style="display:flex;align-items:center;gap:8px">
-          <code id="proxyUrl" style="background:var(--bg);padding:4px 8px;border-radius:4px;font-family:'SF Mono','Menlo','Consolas',monospace;font-size:12px;color:var(--text);flex:1"></code>
-          <button class="btn" style="padding:4px 10px;font-size:11px" onclick="copyUrl(event, mcpUrl())">Copy</button>
-        </div>
-      </div>
-      <div style="border-top:1px solid var(--border);padding-top:12px;margin-bottom:12px">
-        <div style="margin-bottom:8px"><strong style="color:var(--text)">Setup Instructions</strong></div>
-        <div style="margin-bottom:6px"><strong style="color:var(--text)">Claude Code:</strong></div>
-        <div style="margin-bottom:10px">
-          <code id="claudeCodeCmd" style="background:var(--bg);padding:4px 8px;border-radius:4px;font-family:'SF Mono','Menlo','Consolas',monospace;font-size:11px;color:var(--text);display:block"></code>
-        </div>
-        <div style="margin-bottom:6px"><strong style="color:var(--text)">Cline:</strong></div>
-        <div style="margin-bottom:10px">
-          <code id="clineCmd" style="background:var(--bg);padding:4px 8px;border-radius:4px;font-family:'SF Mono','Menlo','Consolas',monospace;font-size:11px;color:var(--text);display:block;white-space:pre;line-height:1.5"></code>
-        </div>
-        <div style="margin-bottom:6px"><strong style="color:var(--text)">Cursor / Copilot / Other:</strong></div>
-        <div style="margin-bottom:10px">
-          <code id="cursorCmd" style="background:var(--bg);padding:4px 8px;border-radius:4px;font-family:'SF Mono','Menlo','Consolas',monospace;font-size:11px;color:var(--text);display:block"></code>
-        </div>
-      </div>
-      <div style="font-size:11px;color:var(--text2);padding:8px;background:var(--bg);border-radius:var(--radius)">
-        This endpoint implements the MCP Streamable HTTP transport (spec 2025-11-25 features via rmcp SDK, protocol version negotiated as 2025-06-18). Legacy SSE-only clients should also use <code style="background:var(--surface2);padding:1px 4px;border-radius:3px;font-size:11px">/mcp</code> — it handles GET requests with SSE streaming.
-      </div>
-    </div>
-    <div class="modal-actions">
-      <button class="btn" onclick="closeProxyHelp()">Close</button>
-    </div>
-  </div>
-</div>
 
 <script>
 let servers = {};
@@ -560,6 +568,8 @@ let currentTransport = 'stdio';
 let logExpanded = false;
 let activeTab = 'tools';
 let pendingDeleteId = null;
+let memoryData = null;
+let showingSetup = false;
 
 function mcpUrl() { return window.location.origin + '/mcp'; }
 
@@ -569,19 +579,54 @@ async function init() {
   await loadTemplates();
   await refreshServers();
   connectSSE();
-  updateProxyHelpUrls();
+  pollMemory();
+  setInterval(pollMemory, 5000);
 }
 
-function updateProxyHelpUrls() {
-  const url = mcpUrl();
-  const el = document.getElementById('proxyUrl');
-  if (el) el.textContent = url;
-  const cc = document.getElementById('claudeCodeCmd');
-  if (cc) cc.textContent = 'claude mcp add mcpsm --transport http ' + url;
-  const cl = document.getElementById('clineCmd');
-  if (cl) cl.textContent = 'Type: streamableHttp\nURL:  ' + url;
-  const cu = document.getElementById('cursorCmd');
-  if (cu) cu.textContent = 'URL: ' + url;
+function formatBytes(bytes) {
+  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(0) + ' KB';
+  if (bytes < 1024 * 1024 * 1024) return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+  return (bytes / (1024 * 1024 * 1024)).toFixed(2) + ' GB';
+}
+
+async function pollMemory() {
+  try {
+    const res = await fetch('/api/memory');
+    memoryData = await res.json();
+    updateMemBadge();
+    // Update server memory in content header if visible
+    if (selectedId && !showingSetup) updateServerMemDisplay();
+  } catch (e) { /* ignore */ }
+}
+
+function updateMemBadge() {
+  const badge = document.getElementById('memBadge');
+  const appEl = document.getElementById('memApp');
+  const srvEl = document.getElementById('memServers');
+  if (!memoryData || !badge || !appEl || !srvEl) return;
+  appEl.textContent = formatBytes(memoryData.self.mem || 0);
+  srvEl.textContent = formatBytes(memoryData.servers_total || 0);
+  badge.style.display = '';
+}
+
+function getServerMem(id) {
+  if (!memoryData || !memoryData.servers || !memoryData.servers[id]) return null;
+  return memoryData.servers[id].mem;
+}
+
+function updateServerMemDisplay() {
+  const el = document.getElementById('serverMemValue');
+  if (!el || !selectedId) return;
+  const s = servers[selectedId];
+  const isRunning = s && s.status && (s.status.type === 'Running' || s.status.type === 'Initializing' || s.status.type === 'Ready');
+  if (!isRunning) { el.style.display = 'none'; return; }
+  const mem = getServerMem(selectedId);
+  if (mem != null) {
+    el.innerHTML = '<span class="mem-label">RAM</span>' + escHtml(formatBytes(mem));
+    el.style.display = '';
+  } else {
+    el.style.display = 'none';
+  }
 }
 
 async function loadTemplates() {
@@ -664,6 +709,9 @@ function handleEvent(evt) {
     case 'Error':
       console.error('Backend error:', evt.message);
       break;
+    case 'Shutdown':
+      handleShutdown();
+      break;
   }
 }
 
@@ -720,6 +768,10 @@ function renderSidebar() {
 
 function renderContent() {
   const el = document.getElementById('content');
+  if (showingSetup) {
+    renderSetupContent(el);
+    return;
+  }
   if (!selectedId || !servers[selectedId]) {
     el.innerHTML = '<div class="empty-state">Select a server to view details</div>';
     return;
@@ -811,7 +863,7 @@ function renderContent() {
   const isEnabled = !s.disabled;
   const autoStartChecked = isEnabled ? ' checked' : '';
   const toggleStateLabel = isEnabled ? 'Enabled' : 'Disabled';
-  const toggleHtml = '<label class="toggle-switch" title="' + toggleStateLabel + ' — controls auto-start on launch">'
+  const toggleHtml = '<label class="toggle-switch" title="' + (isEnabled ? 'Disable server (stops if running)' : 'Enable server') + '">'
     + '<input type="checkbox"' + autoStartChecked + ' onchange="toggleDisabled(\'' + escHtml(selectedId) + '\', !this.checked)">'
     + '<span class="toggle-slider"></span>'
     + '<span class="toggle-label">' + toggleStateLabel + '</span></label>';
@@ -831,10 +883,17 @@ function renderContent() {
   const logViewerClass = logExpanded ? 'expanded' : 'collapsed';
   const logLines = (logs[selectedId] || []).map(l => '<div class="log-line">' + escHtml(l) + '</div>').join('');
 
+  // Server memory (only for running servers)
+  const serverRss = isRunning ? getServerMem(selectedId) : null;
+  const serverMemHtml = serverRss != null
+    ? '<span class="server-mem" id="serverMemValue"><span class="mem-label">RAM</span>' + formatBytes(serverRss) + '</span>'
+    : (isRunning ? '<span class="server-mem" id="serverMemValue" style="display:none"></span>' : '');
+
   el.innerHTML = '<div class="content-header">'
     + '<div style="display:flex;align-items:center;gap:12px">'
     + '<h2>' + escHtml(selectedId) + '</h2>'
     + '<span class="status-badge ' + cls + '">' + statusLabel(s.status) + '</span>'
+    + serverMemHtml
     + '</div>'
     + '<div class="server-actions">' + actionBtns + '</div></div>'
     + '<div class="content-body">'
@@ -918,6 +977,7 @@ function scrollLogToBottom() {
 // --- Actions ---
 function selectServer(id) {
   selectedId = id;
+  showingSetup = false;
   activeTab = 'tools';
   renderSidebar();
   renderContent();
@@ -963,6 +1023,7 @@ async function toggleDisabled(id, disabled) {
   });
   if (servers[id]) servers[id].disabled = disabled;
   renderSidebar();
+  renderContent();
   updateHeaderButtons();
 }
 
@@ -1113,13 +1174,52 @@ function copyUrl(e, url) {
   setTimeout(() => { btn.textContent = orig; }, 1500);
 }
 
-function openProxyHelp() {
-  updateProxyHelpUrls();
-  document.getElementById('proxyHelpModal').classList.add('visible');
+function showSetup() {
+  selectedId = null;
+  showingSetup = true;
+  renderSidebar();
+  renderContent();
 }
 
-function closeProxyHelp() {
-  document.getElementById('proxyHelpModal').classList.remove('visible');
+function renderSetupContent(el) {
+  const url = mcpUrl();
+  el.innerHTML = '<div class="content-header">'
+    + '<div style="display:flex;align-items:center;gap:12px">'
+    + '<h2>MCP Proxy Setup</h2>'
+    + '</div></div>'
+    + '<div class="setup-panel">'
+    + '<div class="setup-section">'
+    + '<div class="setup-section-title">Streamable HTTP Endpoint</div>'
+    + '<div class="setup-code-row">'
+    + '<code class="setup-code">' + escHtml(url) + '</code>'
+    + '<button class="btn" style="padding:4px 10px;font-size:11px;flex-shrink:0" onclick="copyUrl(event, mcpUrl())">Copy</button>'
+    + '</div>'
+    + '<p style="font-size:11px;color:var(--text2);margin-top:2px">All MCP clients connect to this single endpoint. Tools from all running servers are aggregated automatically.</p>'
+    + '</div>'
+    + '<div class="setup-section">'
+    + '<div class="setup-section-title">Claude Code</div>'
+    + '<div class="setup-code-row">'
+    + '<code class="setup-code">' + escHtml('claude mcp add mcpsm --transport http ' + url) + '</code>'
+    + '<button class="btn" style="padding:4px 10px;font-size:11px;flex-shrink:0" onclick="copyUrl(event, \'claude mcp add mcpsm --transport http \' + mcpUrl())">Copy</button>'
+    + '</div>'
+    + '</div>'
+    + '<div class="setup-section">'
+    + '<div class="setup-section-title">Cline</div>'
+    + '<div class="setup-code-row">'
+    + '<code class="setup-code">Type: streamableHttp\nURL:  ' + escHtml(url) + '</code>'
+    + '</div>'
+    + '</div>'
+    + '<div class="setup-section">'
+    + '<div class="setup-section-title">Cursor / Copilot / Other</div>'
+    + '<div class="setup-code-row">'
+    + '<code class="setup-code">URL: ' + escHtml(url) + '</code>'
+    + '<button class="btn" style="padding:4px 10px;font-size:11px;flex-shrink:0" onclick="copyUrl(event, mcpUrl())">Copy</button>'
+    + '</div>'
+    + '</div>'
+    + '<div class="setup-note">'
+    + 'This endpoint implements the MCP Streamable HTTP transport (spec 2025-11-25 features via rmcp SDK, protocol version negotiated as 2025-06-18). Legacy SSE-only clients should also use <code style="background:var(--surface2);padding:1px 4px;border-radius:3px;font-size:11px">/mcp</code> — it handles GET requests with SSE streaming.'
+    + '</div>'
+    + '</div>';
 }
 
 async function clearLogs(id) {
@@ -1149,6 +1249,17 @@ function updateThemeIcon() {
   const theme = document.documentElement.getAttribute('data-theme') || 'dark';
   btn.innerHTML = '<svg class="icon"><use href="#icon-' + (theme === 'dark' ? 'sun' : 'moon') + '"/></svg>';
   btn.title = theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme';
+}
+
+function handleShutdown() {
+  // Try to close the tab (works if opened via window.open or has no history)
+  window.close();
+  // If window.close() didn't work, show a shutdown overlay
+  const overlay = document.createElement('div');
+  overlay.className = 'shutdown-overlay';
+  overlay.innerHTML = '<div class="shutdown-msg">MCPSM has shut down</div>'
+    + '<div class="shutdown-hint">You can close this tab</div>';
+  document.body.appendChild(overlay);
 }
 
 init();

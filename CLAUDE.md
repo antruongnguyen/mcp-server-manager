@@ -74,7 +74,7 @@ Config file watcher (`src/core/watcher.rs`) uses `notify` crate (kqueue on macOS
 
 ## Server Disabled Flag
 
-`ServerConfig.disabled` field (`#[serde(default, skip_serializing_if = "std::ops::Not::not")]`). Non-disabled servers auto-start on launch. The `SetServerDisabled` command updates config and saves, but does NOT start/stop the server — it only affects auto-start behavior. Dashboard shows an "Auto Start" toggle switch. Start All / Stop All buttons in header for bulk operations.
+`ServerConfig.disabled` field (`#[serde(default, skip_serializing_if = "std::ops::Not::not")]`). Non-disabled servers auto-start on launch. The `SetServerDisabled` command updates config and saves; disabling a running server stops it, but enabling does NOT auto-start — the user must click Start. Dashboard shows an enable/disable toggle switch. Start All / Stop All buttons in header for bulk operations.
 
 ## Rich Tool/Server Info
 
