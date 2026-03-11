@@ -7,18 +7,19 @@ A native macOS application that manages [Model Context Protocol](https://modelco
 - **Unified MCP proxy** — single endpoint aggregates tools from all child servers
 - **Streamable HTTP transport** — full MCP protocol support (POST/GET/DELETE) with session management via [rmcp](https://github.com/anthropics/rmcp) SDK
 - **Tool namespacing** — tools from each server are prefixed (`server_id__tool_name`) to avoid collisions
-- **Web dashboard** — start/stop servers, enable/disable toggle, view rich tool info, monitor logs, dark/light theme
+- **Web dashboard** — start/stop servers, auto-start toggle, view rich tool info, monitor logs, dark/light theme
 - **Rich tool info** — tool descriptions, annotations (read-only, destructive, idempotent), MCP server info panel with capabilities
 - **Dark/light theme** — Islands-inspired color scheme with theme toggle in header (persisted in localStorage)
-- **Server auto-start** — enabled servers start automatically on launch
-- **Enable/disable toggle** — per-server toggle in dashboard and config; disabled servers won't auto-start
+- **Server auto-start** — non-disabled servers start automatically on launch
+- **Auto-start toggle** — per-server toggle in dashboard; toggling only saves config (does not start/stop running servers)
+- **Start/Stop All** — header buttons for bulk server control (conditional visibility based on server states)
 - **Configurable port** — set `"port": 8080` in config to change the dashboard/proxy port (default: 17532)
 - **Config file watching** — external edits to the config file are detected and applied automatically (smart diff: only affected servers restart)
 - **Status bar app** — macOS status bar with "Open Dashboard", "Edit Config", and "Quit" menu items
 - **Edit Config** — opens `~/.config/mcpsm/mcp.json` in your default editor from the status bar
 - **Real-time log viewer** — monospaced log panel with auto-scroll (last 200 lines per server)
 - **Built-in templates** — pre-configured servers for Sequential Thinking, Knowledge Graph Memory, and Context7
-- **Auto-save** — server config is persisted to disk immediately on add/update/delete/enable toggle
+- **Auto-save** — server config is persisted to disk immediately on add/update/delete/disabled toggle
 - **Graceful shutdown** — Quit and Ctrl+C stop all running servers cleanly (SIGTERM → 5s → SIGKILL)
 
 ## Requirements
@@ -39,7 +40,7 @@ cargo build --release
 cargo run
 ```
 
-On launch, MCPSM reads server configuration from `~/.config/mcpsm/mcp.json` (auto-created on first run). Enabled servers start automatically. Servers added through the web dashboard are saved to this file automatically.
+On launch, MCPSM reads server configuration from `~/.config/mcpsm/mcp.json` (auto-created on first run). Non-disabled servers start automatically. Servers added through the web dashboard are saved to this file automatically.
 
 The config format is:
 
@@ -50,20 +51,18 @@ The config format is:
     "sequential-thinking": {
       "command": "npx",
       "args": ["-y", "@modelcontextprotocol/server-sequential-thinking"],
-      "env": {},
-      "enabled": true
+      "env": {}
     },
     "memory": {
       "command": "npx",
       "args": ["-y", "@modelcontextprotocol/server-memory"],
       "env": {
         "MEMORY_FILE_PATH": "/tmp/memory.json"
-      },
-      "enabled": true
+      }
     },
     "remote-server": {
       "url": "http://example.com:3000/mcp",
-      "enabled": false
+      "disabled": true
     }
   }
 }
@@ -74,7 +73,7 @@ The config format is:
 - `mcpServers` — map of server ID → config
   - `command` + `args` + `env` — for stdio (child process) servers
   - `url` — for remote HTTP servers
-  - `enabled` (optional, default: `true`) — whether the server auto-starts and is active
+  - `disabled` (optional, default: `false`) — when `true`, the server won't auto-start on launch (omitted from JSON when `false`)
 
 **Config file watching:** MCPSM watches the config file for external changes. When you edit it in an editor, MCPSM detects the change and applies a smart diff — only affected servers are stopped/started/restarted.
 
@@ -206,9 +205,9 @@ src/
 └── web/
     ├── state.rs                # Shared AppState
     ├── server.rs               # Router + web server startup (configurable port)
-    ├── handlers.rs             # REST API handlers (CRUD + enable toggle)
+    ├── handlers.rs             # REST API handlers (CRUD + disabled toggle + start/stop all)
     ├── sse.rs                  # Server-Sent Events stream
-    └── dashboard.html          # Web dashboard UI (rich tools, enable toggle, dynamic URLs)
+    └── dashboard.html          # Web dashboard UI (rich tools, auto-start toggle, start/stop all, themes)
 ```
 
 ## Management REST API
@@ -220,11 +219,14 @@ src/
 | POST   | `/api/servers`             | Add a server (auto-saves to config)      |
 | POST   | `/api/servers/:id/start`   | Start a server                           |
 | POST   | `/api/servers/:id/stop`    | Stop a server                            |
-| POST   | `/api/servers/:id/enabled` | Set enabled/disabled (`{ "enabled": bool }`) |
-| DELETE | `/api/servers/:id`         | Remove a server (auto-saves to config)   |
-| GET    | `/api/servers/:id/logs`    | Request log snapshot                     |
-| DELETE | `/api/servers/:id/logs`    | Clear server logs                        |
-| GET    | `/api/templates`           | List built-in templates                  |
+| POST   | `/api/servers/:id/disabled` | Set disabled flag (`{ "disabled": bool }`)   |
+| PUT    | `/api/servers/:id`         | Update server config                         |
+| DELETE | `/api/servers/:id`         | Remove a server (auto-saves to config)       |
+| GET    | `/api/servers/:id/logs`    | Request log snapshot                         |
+| DELETE | `/api/servers/:id/logs`    | Clear server logs                            |
+| POST   | `/api/servers/start-all`   | Start all non-disabled servers               |
+| POST   | `/api/servers/stop-all`    | Stop all running servers                     |
+| GET    | `/api/templates`           | List built-in templates                      |
 | GET    | `/api/events`              | SSE event stream                         |
 
 ## MCP Proxy Endpoint

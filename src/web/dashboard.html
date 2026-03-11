@@ -373,6 +373,15 @@
   <symbol id="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
     <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
   </symbol>
+  <symbol id="icon-help" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+  </symbol>
+  <symbol id="icon-play-all" viewBox="0 0 24 24" fill="currentColor" stroke="none">
+    <polygon points="4,4 14,12 4,20"/><polygon points="12,4 22,12 12,20"/>
+  </symbol>
+  <symbol id="icon-stop-all" viewBox="0 0 24 24" fill="currentColor" stroke="none">
+    <rect x="3" y="5" width="7" height="14" rx="1"/><rect x="14" y="5" width="7" height="14" rx="1"/>
+  </symbol>
 </svg>
 
 <header>
@@ -400,10 +409,15 @@
     <h1>MCP Server Manager</h1>
   </div>
   <div class="header-actions">
-    <div class="proxy-badge" id="proxyBadge">
-      Help
-      <button class="proxy-help-btn" onclick="openProxyHelp()" title="Connection instructions">?</button>
-    </div>
+    <button class="icon-btn accent" id="startAllBtn" onclick="startAllServers()" title="Start All Servers" style="display:none">
+      <svg class="icon"><use href="#icon-play-all"/></svg>
+    </button>
+    <button class="icon-btn danger" id="stopAllBtn" onclick="stopAllServers()" title="Stop All Servers" style="display:none">
+      <svg class="icon"><use href="#icon-stop-all"/></svg>
+    </button>
+    <button class="icon-btn" onclick="openProxyHelp()" title="Connection instructions">
+      <svg class="icon"><use href="#icon-help"/></svg>
+    </button>
     <button class="icon-btn" onclick="toggleTheme()" id="themeToggle" title="Toggle theme">
       <svg class="icon"><use href="#icon-sun"/></svg>
     </button>
@@ -605,7 +619,7 @@ function handleEvent(evt) {
           logs[evt.id] = [];
         }
       } else {
-        servers[evt.id] = { config: { command: '', args: [], env: {} }, status: evt.status, tools: [], enabled: true };
+        servers[evt.id] = { config: { command: '', args: [], env: {} }, status: evt.status, tools: [], disabled: false };
         refreshServers();
         return;
       }
@@ -668,7 +682,7 @@ function renderSidebar() {
     const s = servers[id];
     const cls = statusClass(s.status);
     const active = id === selectedId ? ' active' : '';
-    const disabled = (s.enabled === false) ? ' disabled' : '';
+    const disabled = s.disabled ? ' disabled' : '';
     const toolCount = (s.tools && s.tools.length) || 0;
     const toolBadge = toolCount > 0
       ? '<span class="server-tools-count">' + toolCount + ' tools</span>'
@@ -679,6 +693,7 @@ function renderSidebar() {
       + toolBadge
       + '</div>';
   }).join('');
+  updateHeaderButtons();
 }
 
 function renderContent() {
@@ -770,10 +785,10 @@ function renderContent() {
   }
   tabContentHtml += '</div>';
 
-  // Enable toggle with label
-  const enabledChecked = s.enabled !== false ? ' checked' : '';
-  const toggleHtml = '<label class="toggle-switch" title="Enable/Disable">'
-    + '<input type="checkbox"' + enabledChecked + ' onchange="toggleEnabled(\'' + escHtml(selectedId) + '\', this.checked)">'
+  // Auto-start toggle (checked = not disabled)
+  const autoStartChecked = !s.disabled ? ' checked' : '';
+  const toggleHtml = '<label class="toggle-switch" title="Auto Start on launch">'
+    + '<input type="checkbox"' + autoStartChecked + ' onchange="toggleDisabled(\'' + escHtml(selectedId) + '\', !this.checked)">'
     + '<span class="toggle-slider"></span>'
     + '<span class="toggle-label">Auto Start</span></label>';
 
@@ -916,15 +931,37 @@ async function executeConfirmedDelete() {
   renderContent();
 }
 
-async function toggleEnabled(id, enabled) {
-  await fetch('/api/servers/' + encodeURIComponent(id) + '/enabled', {
+async function toggleDisabled(id, disabled) {
+  await fetch('/api/servers/' + encodeURIComponent(id) + '/disabled', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ enabled }),
+    body: JSON.stringify({ disabled }),
   });
-  if (servers[id]) servers[id].enabled = enabled;
+  if (servers[id]) servers[id].disabled = disabled;
   renderSidebar();
-  setTimeout(refreshServers, 500);
+  updateHeaderButtons();
+}
+
+async function startAllServers() {
+  await fetch('/api/servers/start-all', { method: 'POST' });
+}
+
+async function stopAllServers() {
+  await fetch('/api/servers/stop-all', { method: 'POST' });
+}
+
+function updateHeaderButtons() {
+  const ids = Object.keys(servers);
+  const anyRunning = ids.some(id => {
+    const s = servers[id];
+    return s.status && (s.status.type === 'Running' || s.status.type === 'Initializing' || s.status.type === 'Ready' || s.status.type === 'Starting');
+  });
+  const anyStartable = ids.some(id => {
+    const s = servers[id];
+    return !s.disabled && (!s.status || s.status.type === 'Stopped' || s.status.type === 'Error');
+  });
+  document.getElementById('startAllBtn').style.display = anyStartable ? '' : 'none';
+  document.getElementById('stopAllBtn').style.display = anyRunning ? '' : 'none';
 }
 
 // --- Server Modal (Add/Edit) ---

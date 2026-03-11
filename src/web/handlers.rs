@@ -116,18 +116,28 @@ pub async fn list_templates() -> Json<serde_json::Value> {
 }
 
 #[derive(serde::Deserialize)]
-pub struct SetEnabledRequest {
-    pub enabled: bool,
+pub struct SetDisabledRequest {
+    pub disabled: bool,
 }
 
-pub async fn set_enabled(
+pub async fn set_disabled(
     State(state): State<Arc<AppState>>,
     Path(id): Path<String>,
-    Json(body): Json<SetEnabledRequest>,
+    Json(body): Json<SetDisabledRequest>,
 ) -> StatusCode {
-    let _ = state.cmd_tx.send(AppCommand::SetServerEnabled {
+    let _ = state.cmd_tx.send(AppCommand::SetServerDisabled {
         id,
-        enabled: body.enabled,
+        disabled: body.disabled,
     });
+    StatusCode::ACCEPTED
+}
+
+pub async fn start_all(State(state): State<Arc<AppState>>) -> StatusCode {
+    let _ = state.cmd_tx.send(AppCommand::StartAllServers);
+    StatusCode::ACCEPTED
+}
+
+pub async fn stop_all(State(state): State<Arc<AppState>>) -> StatusCode {
+    let _ = state.cmd_tx.send(AppCommand::StopAllServers);
     StatusCode::ACCEPTED
 }

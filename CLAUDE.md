@@ -66,13 +66,13 @@ Reads/writes `~/.config/mcpsm/mcp.json` (auto-created on first run). Uses `serde
 
 Config supports:
 - `port` (u16, default 17532) — extracted at startup, persisted if non-default
-- `mcpServers` — map of server configs with `command`/`args`/`env` (stdio) or `url` (HTTP) + `enabled` (default true)
+- `mcpServers` — map of server configs with `command`/`args`/`env` (stdio) or `url` (HTTP) + optional `disabled` (default false, omitted when false)
 
-Config file watcher (`src/core/watcher.rs`) uses `notify` crate (kqueue on macOS) with 500ms debounce. Smart reload diffs old vs new config: stops removed servers, adds new ones (auto-starts if enabled), restarts changed ones. Ignores events within 2s of our own saves.
+Config file watcher (`src/core/watcher.rs`) uses `notify` crate (kqueue on macOS) with 500ms debounce. Smart reload diffs old vs new config: stops removed servers, adds new ones (auto-starts if not disabled), restarts changed ones. Ignores events within 2s of our own saves.
 
-## Server Enabled/Disabled
+## Server Disabled Flag
 
-`ServerConfig.enabled` field (`#[serde(default = "default_true")]`). Enabled servers auto-start on launch. The `SetServerEnabled` command updates config, saves, and starts/stops the server accordingly. Dashboard shows a toggle switch.
+`ServerConfig.disabled` field (`#[serde(default, skip_serializing_if = "std::ops::Not::not")]`). Non-disabled servers auto-start on launch. The `SetServerDisabled` command updates config and saves, but does NOT start/stop the server — it only affects auto-start behavior. Dashboard shows an "Auto Start" toggle switch. Start All / Stop All buttons in header for bulk operations.
 
 ## Rich Tool/Server Info
 

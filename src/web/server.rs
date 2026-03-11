@@ -31,9 +31,11 @@ pub fn build_router(state: Arc<AppState>, proxy_handler: ProxyHandler) -> Router
         .route("/api/servers/{id}/logs", get(handlers::get_logs))
         .route("/api/servers/{id}/logs", delete(handlers::clear_logs))
         .route(
-            "/api/servers/{id}/enabled",
-            post(handlers::set_enabled),
+            "/api/servers/{id}/disabled",
+            post(handlers::set_disabled),
         )
+        .route("/api/servers/start-all", post(handlers::start_all))
+        .route("/api/servers/stop-all", post(handlers::stop_all))
         .route("/api/templates", get(handlers::list_templates))
         .route("/api/events", get(sse::event_stream))
         .with_state(state)

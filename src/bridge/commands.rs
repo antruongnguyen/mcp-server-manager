@@ -7,11 +7,12 @@ use serde::Serialize;
 pub enum AppCommand {
     StartServer { id: String },
     StopServer { id: String },
+    StartAllServers,
     StopAllServers,
     AddServer { id: String, config: ServerConfig },
     UpdateServer { id: String, config: ServerConfig },
     DeleteServer { id: String },
-    SetServerEnabled { id: String, enabled: bool },
+    SetServerDisabled { id: String, disabled: bool },
     LoadConfig,
     SaveConfig,
     ReloadConfigIfChanged,

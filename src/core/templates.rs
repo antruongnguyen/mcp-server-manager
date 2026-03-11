@@ -22,7 +22,7 @@ pub fn builtin_templates() -> Vec<ServerTemplate> {
                 env: HashMap::new(),
                 url: None,
                 auth_header: None,
-                enabled: true,
+                disabled: false,
             },
         },
         ServerTemplate {
@@ -34,7 +34,7 @@ pub fn builtin_templates() -> Vec<ServerTemplate> {
                 env: HashMap::from([("MEMORY_FILE_PATH".into(), "memory.json".into())]),
                 url: None,
                 auth_header: None,
-                enabled: true,
+                disabled: false,
             },
         },
         ServerTemplate {
@@ -46,7 +46,7 @@ pub fn builtin_templates() -> Vec<ServerTemplate> {
                 env: HashMap::new(),
                 url: None,
                 auth_header: None,
-                enabled: true,
+                disabled: false,
             },
         },
     ]

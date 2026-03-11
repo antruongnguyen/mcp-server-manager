@@ -177,7 +177,7 @@ mod tests {
                 env: HashMap::new(),
                 url: None,
                 auth_header: None,
-                enabled: true,
+                disabled: false,
             },
         ));
         save_config_to_path(&path, &updated, &loaded_doc, DEFAULT_PORT).unwrap();
@@ -204,7 +204,7 @@ mod tests {
                 env: HashMap::new(),
                 url: None,
                 auth_header: None,
-                enabled: true,
+                disabled: false,
             },
         )];
         save_config_to_path(&path, &servers, &doc, DEFAULT_PORT).unwrap();

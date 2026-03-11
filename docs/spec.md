@@ -22,15 +22,16 @@ MCPSM (MCP Server Manager) is a native macOS status bar application that manages
 - Error state captures failure messages from MCP handshake or process errors
 
 ### F3. Auto-Start on Launch
-- Servers with `enabled: true` (default) automatically start when MCPSM launches
-- Auto-start runs after config is loaded, iterating enabled servers sequentially
+- Servers with `disabled: false` (default) automatically start when MCPSM launches
+- Auto-start runs after config is loaded, iterating non-disabled servers sequentially
 - Disabled servers are loaded but remain in Stopped state
 
-### F4. Enable/Disable Toggle
-- Per-server `enabled` boolean in config (default: `true`, backward compatible via `serde(default)`)
-- Dashboard toggle switch in server content header
-- Toggling enabled: saves config, then starts (if enabling) or stops (if disabling) the server
+### F4. Disabled Flag / Auto-Start Toggle
+- Per-server `disabled` boolean in config (default: `false`, omitted from JSON when false via `skip_serializing_if`)
+- Dashboard "Auto Start" toggle switch in server content header
+- Toggling disabled: saves config only — does NOT start or stop the server
 - Sidebar dims disabled servers (reduced opacity)
+- Start All / Stop All buttons in header for bulk operations (conditional visibility)
 
 ### F5. Configurable Port
 - Top-level `"port"` key in config JSON (default: `17532`)
@@ -71,8 +72,9 @@ MCPSM (MCP Server Manager) is a native macOS status bar application that manages
 - Theme toggle button in header (sun/moon icon), persisted in `localStorage`
 - Separate `--logo-*` CSS variables for header logo visibility tuned per theme
 - Sidebar: server list with status dots, tool counts, disabled dimming
-- Content area: status badge, start/stop buttons, enable toggle, config details, MCP info, tools, logs
-- Modals: Add Server (with template selector), Proxy Help (with setup instructions)
+- Content area: status badge, start/stop buttons, auto-start toggle, config details, MCP info, tools, logs
+- Header: logo, title, Start All / Stop All buttons (conditional), Help button, theme toggle
+- Modals: Add Server (with template selector), Edit Server, Confirm Delete, Proxy Help (with setup instructions)
 - All URLs use `window.location.origin` (works for any port)
 - SSE connection for real-time updates (status, tools, logs)
 
@@ -102,7 +104,7 @@ MCPSM (MCP Server Manager) is a native macOS status bar application that manages
 - Config path: `~/.config/mcpsm/mcp.json` (auto-created on first run)
 - Atomic writes: temp file + rename
 - Preserves unknown top-level JSON keys (uses `serde_json::Value` for outer document)
-- Auto-saves on: add, update, delete, enable toggle
+- Auto-saves on: add, update, delete, disabled toggle
 
 ---
 
@@ -124,9 +126,9 @@ MCPSM (MCP Server Manager) is a native macOS status bar application that manages
 **Decision**: 500ms debounce + 2s ignore window after our own saves.
 **Rationale**: Editors like vim and VS Code perform atomic writes (write-tmp → rename), generating multiple filesystem events. Debouncing collapses these. The last-save tracking prevents infinite loops where our save triggers a watcher event which triggers another save.
 
-### D5. Enabled Field Defaults to True
-**Decision**: `#[serde(default = "default_true")]` on `ServerConfig.enabled`.
-**Rationale**: Backward compatibility — existing config files without the `enabled` field should behave exactly as before (all servers are startable). New servers added via dashboard also default to enabled.
+### D5. Disabled Field Defaults to False
+**Decision**: `#[serde(default, skip_serializing_if = "std::ops::Not::not")]` on `ServerConfig.disabled`.
+**Rationale**: Clean config — disabled field is only written when `true`. Old config files without the field default to not-disabled (auto-start). Toggling disabled only saves config; it does NOT start/stop servers, giving users explicit control over server lifecycle.
 
 ### D6. Port Extracted Before Tokio Runtime
 **Decision**: Early synchronous config read in `main()` to extract port before spawning the background thread.
@@ -165,7 +167,8 @@ MCPSM (MCP Server Manager) is a native macOS status bar application that manages
 - Error states are recoverable — failed servers can be restarted
 
 ### NFR3. Backward Compatibility
-- Config files without `enabled` field work (defaults to `true`)
+- Config files without `disabled` field work (defaults to `false` = auto-start)
+- Old `enabled` field is silently ignored by serde (unknown fields are skipped)
 - Config files without `port` field work (defaults to `17532`)
 - Unknown top-level JSON keys in config are preserved across saves
 
@@ -252,14 +255,17 @@ MCPSM (MCP Server Manager) is a native macOS status bar application that manages
 | Method | Path | Request Body | Response | Description |
 |--------|------|-------------|----------|-------------|
 | GET | `/` | — | HTML | Web dashboard |
-| GET | `/api/servers` | — | JSON map | All servers with config, status, tools, enabled, peer_info |
+| GET | `/api/servers` | — | JSON map | All servers with config, status, tools, disabled, peer_info |
 | POST | `/api/servers` | `{ id, config }` | 202 | Add a new server |
 | POST | `/api/servers/:id/start` | — | 202 | Start a server |
 | POST | `/api/servers/:id/stop` | — | 202 | Stop a server |
-| POST | `/api/servers/:id/enabled` | `{ enabled: bool }` | 202 | Enable or disable a server |
+| POST | `/api/servers/:id/disabled` | `{ disabled: bool }` | 202 | Set disabled flag (config only, no start/stop) |
+| PUT | `/api/servers/:id` | `{ config }` | 202 | Update server config |
 | DELETE | `/api/servers/:id` | — | 202 | Delete a server |
 | GET | `/api/servers/:id/logs` | — | 202 | Request log snapshot (delivered via SSE) |
 | DELETE | `/api/servers/:id/logs` | — | 202 | Clear server logs |
+| POST | `/api/servers/start-all` | — | 202 | Start all non-disabled servers |
+| POST | `/api/servers/stop-all` | — | 202 | Stop all running servers |
 | GET | `/api/templates` | — | JSON array | Built-in server templates |
 | GET | `/api/events` | — | SSE stream | Real-time backend events |
 
@@ -293,7 +299,8 @@ command: Option<String>     # Command to run (stdio servers)
 args: Vec<String>           # Command arguments
 env: HashMap<String,String> # Environment variables
 url: Option<String>         # Remote server URL (HTTP servers)
-enabled: bool               # Auto-start flag (default: true)
+auth_header: Option<String> # HTTP Authorization header (optional)
+disabled: bool              # Skip auto-start (default: false, omitted when false)
 ```
 
 ### ServerInfo (web API response)
@@ -301,7 +308,7 @@ enabled: bool               # Auto-start flag (default: true)
 config: ServerConfig
 status: ServerStatus        # Stopped|Starting|Initializing|Ready|Stopping|Error
 tools: Vec<ToolInfo>
-enabled: bool
+disabled: bool
 peer_info: Option<McpPeerInfo>
 ```
 

@@ -18,7 +18,7 @@ pub struct ServerInfo {
     pub config: ServerConfig,
     pub status: ServerStatus,
     pub tools: Vec<ToolInfo>,
-    pub enabled: bool,
+    pub disabled: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub peer_info: Option<McpPeerInfo>,
 }
@@ -179,11 +179,11 @@ impl ServerManager {
 
     async fn auto_load_config(&mut self) {
         self.handle_load_config().await;
-        // Auto-start all enabled servers
+        // Auto-start all non-disabled servers
         let ids: Vec<String> = self
             .servers
             .iter()
-            .filter(|(_, s)| s.config.enabled)
+            .filter(|(_, s)| !s.config.disabled)
             .map(|(id, _)| id.clone())
             .collect();
         for id in ids {
@@ -222,8 +222,8 @@ impl ServerManager {
                 self.handle_delete_server(&id).await;
                 false
             }
-            AppCommand::SetServerEnabled { id, enabled } => {
-                self.handle_set_enabled(&id, enabled).await;
+            AppCommand::SetServerDisabled { id, disabled } => {
+                self.handle_set_disabled(&id, disabled).await;
                 false
             }
             AppCommand::StartServer { id } => {
@@ -232,6 +232,10 @@ impl ServerManager {
             }
             AppCommand::StopServer { id } => {
                 self.handle_stop_server(&id).await;
+                false
+            }
+            AppCommand::StartAllServers => {
+                self.start_all_servers().await;
                 false
             }
             AppCommand::StopAllServers => {
@@ -453,7 +457,7 @@ impl ServerManager {
                     || existing.config.env != new_config.env
                     || existing.config.url != new_config.url
                     || existing.config.auth_header != new_config.auth_header;
-                let enabled_changed = existing.config.enabled != new_config.enabled;
+                let disabled_changed = existing.config.disabled != new_config.disabled;
                 let was_running = existing.status.is_running();
 
                 if config_changed {
@@ -462,21 +466,23 @@ impl ServerManager {
                     if let Some(server) = self.servers.get_mut(id) {
                         server.config = new_config.clone();
                     }
-                    if new_config.enabled {
+                    if !new_config.disabled {
                         self.handle_start_server(id).await;
                     }
-                } else if enabled_changed {
+                } else if disabled_changed {
                     tracing::info!(
-                        "Config reload: server '{}' enabled changed to {}",
+                        "Config reload: server '{}' disabled changed to {}",
                         id,
-                        new_config.enabled
+                        new_config.disabled
                     );
                     if let Some(server) = self.servers.get_mut(id) {
-                        server.config.enabled = new_config.enabled;
+                        server.config.disabled = new_config.disabled;
                     }
-                    if new_config.enabled && !was_running {
+                    // disabled toggle from config reload: start if newly enabled and not running,
+                    // stop if newly disabled and running
+                    if !new_config.disabled && !was_running {
                         self.handle_start_server(id).await;
-                    } else if !new_config.enabled && was_running {
+                    } else if new_config.disabled && was_running {
                         self.handle_stop_server(id).await;
                     }
                 }
@@ -495,7 +501,7 @@ impl ServerManager {
                         child: None,
                     },
                 );
-                if new_config.enabled {
+                if !new_config.disabled {
                     self.handle_start_server(id).await;
                 }
             }
@@ -551,7 +557,7 @@ impl ServerManager {
         self.handle_save_config();
 
         // Restart if it was previously running
-        if was_running && config.enabled {
+        if was_running && !config.disabled {
             self.handle_start_server(&id).await;
         }
     }
@@ -571,26 +577,15 @@ impl ServerManager {
         self.handle_save_config();
     }
 
-    async fn handle_set_enabled(&mut self, id: &str, enabled: bool) {
-        let was_running = self
-            .servers
-            .get(id)
-            .is_some_and(|s| s.status.is_running());
-
+    async fn handle_set_disabled(&mut self, id: &str, disabled: bool) {
         if let Some(server) = self.servers.get_mut(id) {
-            server.config.enabled = enabled;
+            server.config.disabled = disabled;
         } else {
             return;
         }
 
         self.handle_save_config();
         self.sync_shared_state().await;
-
-        if enabled && !was_running {
-            self.handle_start_server(id).await;
-        } else if !enabled && was_running {
-            self.handle_stop_server(id).await;
-        }
     }
 
     async fn handle_start_server(&mut self, id: &str) {
@@ -827,6 +822,18 @@ impl ServerManager {
         }
     }
 
+    async fn start_all_servers(&mut self) {
+        let ids: Vec<String> = self
+            .servers
+            .iter()
+            .filter(|(_, s)| !s.config.disabled && !s.status.is_running())
+            .map(|(id, _)| id.clone())
+            .collect();
+        for id in ids {
+            self.handle_start_server(&id).await;
+        }
+    }
+
     fn handle_request_logs(&self, id: &str) {
         if let Some(server) = self.servers.get(id) {
             send(
@@ -878,7 +885,7 @@ impl ServerManager {
                         config: s.config.clone(),
                         status: s.status.clone(),
                         tools: s.tools.clone(),
-                        enabled: s.config.enabled,
+                        disabled: s.config.disabled,
                         peer_info: s.peer_info.clone(),
                     },
                 )
