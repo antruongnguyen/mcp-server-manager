@@ -109,13 +109,28 @@
   .icon-btn.danger:hover { background: var(--red); color: #fff; }
   .icon-btn.accent { border-color: var(--accent); color: var(--accent); }
   .icon-btn.accent:hover { background: var(--accent); color: #fff; }
+  .labeled-btn {
+    display: inline-flex; align-items: center; gap: 5px;
+    height: 28px; padding: 0 10px; border-radius: var(--radius);
+    border: 1px solid var(--border); background: var(--surface2);
+    color: var(--text2); cursor: pointer; transition: all 0.15s;
+    font-size: 11px; font-weight: 500; font-family: inherit; white-space: nowrap;
+  }
+  .labeled-btn .icon { width: 12px; height: 12px; }
+  .labeled-btn:hover { background: var(--border); color: var(--text); }
+  .labeled-btn.accent { border-color: var(--accent); color: var(--accent); }
+  .labeled-btn.accent:hover { background: var(--accent); color: #fff; }
+  .labeled-btn.danger { border-color: var(--red); color: var(--red); }
+  .labeled-btn.danger:hover { background: var(--red); color: #fff; }
+  .labeled-btn.setup { border-color: var(--green); color: var(--green); }
+  .labeled-btn.setup:hover { background: var(--green); color: #fff; }
 
   /* Main layout */
   .main { display: flex; flex: 1; overflow: hidden; }
 
   /* Sidebar */
   .sidebar {
-    width: 260px; min-width: 200px; background: var(--surface);
+    width: 300px; min-width: 220px; background: var(--surface);
     border-right: 1px solid var(--border); display: flex; flex-direction: column;
   }
   .sidebar-header {
@@ -133,6 +148,9 @@
   .server-item:hover { background: var(--surface2); }
   .server-item.active { background: var(--surface2); border-left-color: var(--accent); }
   .server-item.disabled { opacity: 0.5; }
+  .sidebar-sep {
+    height: 1px; background: var(--border); margin: 4px 16px;
+  }
   .status-dot {
     width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
   }
@@ -376,12 +394,6 @@
   <symbol id="icon-help" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
     <circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/>
   </symbol>
-  <symbol id="icon-play-all" viewBox="0 0 24 24" fill="currentColor" stroke="none">
-    <polygon points="4,4 14,12 4,20"/><polygon points="12,4 22,12 12,20"/>
-  </symbol>
-  <symbol id="icon-stop-all" viewBox="0 0 24 24" fill="currentColor" stroke="none">
-    <rect x="3" y="5" width="7" height="14" rx="1"/><rect x="14" y="5" width="7" height="14" rx="1"/>
-  </symbol>
 </svg>
 
 <header>
@@ -409,14 +421,14 @@
     <h1>MCP Server Manager</h1>
   </div>
   <div class="header-actions">
-    <button class="icon-btn accent" id="startAllBtn" onclick="startAllServers()" title="Start All Servers" style="display:none">
-      <svg class="icon"><use href="#icon-play-all"/></svg>
+    <button class="labeled-btn accent" id="startAllBtn" onclick="startAllServers()" title="Start All Enabled Servers" style="display:none">
+      <svg class="icon"><use href="#icon-play"/></svg> Start All
     </button>
-    <button class="icon-btn danger" id="stopAllBtn" onclick="stopAllServers()" title="Stop All Servers" style="display:none">
-      <svg class="icon"><use href="#icon-stop-all"/></svg>
+    <button class="labeled-btn danger" id="stopAllBtn" onclick="stopAllServers()" title="Stop All Started Servers" style="display:none">
+      <svg class="icon"><use href="#icon-square"/></svg> Stop All
     </button>
-    <button class="icon-btn" onclick="openProxyHelp()" title="Connection instructions">
-      <svg class="icon"><use href="#icon-help"/></svg>
+    <button class="labeled-btn setup" onclick="openProxyHelp()" title="Connection instructions">
+      <svg class="icon"><use href="#icon-help"/></svg> Setup
     </button>
     <button class="icon-btn" onclick="toggleTheme()" id="themeToggle" title="Toggle theme">
       <svg class="icon"><use href="#icon-sun"/></svg>
@@ -678,7 +690,10 @@ function statusLabel(status) {
 function renderSidebar() {
   const list = document.getElementById('serverList');
   const ids = Object.keys(servers).sort();
-  list.innerHTML = ids.map(id => {
+  const enabledIds = ids.filter(id => !servers[id].disabled);
+  const disabledIds = ids.filter(id => servers[id].disabled);
+
+  function renderItem(id) {
     const s = servers[id];
     const cls = statusClass(s.status);
     const active = id === selectedId ? ' active' : '';
@@ -692,7 +707,14 @@ function renderSidebar() {
       + '<span class="server-name">' + escHtml(id) + '</span>'
       + toolBadge
       + '</div>';
-  }).join('');
+  }
+
+  let html = enabledIds.map(renderItem).join('');
+  if (enabledIds.length > 0 && disabledIds.length > 0) {
+    html += '<div class="sidebar-sep"></div>';
+  }
+  html += disabledIds.map(renderItem).join('');
+  list.innerHTML = html;
   updateHeaderButtons();
 }
 
@@ -785,19 +807,21 @@ function renderContent() {
   }
   tabContentHtml += '</div>';
 
-  // Auto-start toggle (checked = not disabled)
-  const autoStartChecked = !s.disabled ? ' checked' : '';
-  const toggleHtml = '<label class="toggle-switch" title="Auto Start on launch">'
+  // Enable/Disable toggle (checked = enabled = not disabled)
+  const isEnabled = !s.disabled;
+  const autoStartChecked = isEnabled ? ' checked' : '';
+  const toggleStateLabel = isEnabled ? 'Enabled' : 'Disabled';
+  const toggleHtml = '<label class="toggle-switch" title="' + toggleStateLabel + ' — controls auto-start on launch">'
     + '<input type="checkbox"' + autoStartChecked + ' onchange="toggleDisabled(\'' + escHtml(selectedId) + '\', !this.checked)">'
     + '<span class="toggle-slider"></span>'
-    + '<span class="toggle-label">Auto Start</span></label>';
+    + '<span class="toggle-label">' + toggleStateLabel + '</span></label>';
 
   // Action buttons with icons
   let actionBtns = toggleHtml;
   actionBtns += '<button class="icon-btn" onclick="openEditModal(\'' + escHtml(selectedId) + '\')" title="Edit"><svg class="icon"><use href="#icon-pencil"/></svg></button>';
   if (isRunning) {
     actionBtns += '<button class="icon-btn danger" onclick="stopServer(\'' + escHtml(selectedId) + '\')" title="Stop"><svg class="icon"><use href="#icon-square"/></svg></button>';
-  } else {
+  } else if (isEnabled) {
     actionBtns += '<button class="icon-btn accent" onclick="startServer(\'' + escHtml(selectedId) + '\')" title="Start"><svg class="icon"><use href="#icon-play"/></svg></button>';
   }
   actionBtns += '<button class="icon-btn danger" onclick="confirmDeleteServer(\'' + escHtml(selectedId) + '\')" title="Delete"><svg class="icon"><use href="#icon-trash"/></svg></button>';
