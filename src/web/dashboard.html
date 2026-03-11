@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>MCPSM — MCP Server Manager</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg width='32' height='32' viewBox='0 0 180 180' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Crect width='180' height='180' rx='28' fill='%231e1e2e'/%3E%3Ccircle cx='90' cy='90' r='22' stroke='%237c7cf0' stroke-width='5'/%3E%3Ccircle cx='90' cy='90' r='14' fill='%237c7cf0' opacity='0.3'/%3E%3Cpath d='M90 68L93 75H87Z' fill='%237c7cf0'/%3E%3Cpath d='M90 112L87 105H93Z' fill='%237c7cf0'/%3E%3Cpath d='M68 90L75 87V93Z' fill='%237c7cf0'/%3E%3Cpath d='M112 90L105 93V87Z' fill='%237c7cf0'/%3E%3Cline x1='77' y1='78' x2='52' y2='52' stroke='%2350d080' stroke-width='4' stroke-linecap='round'/%3E%3Crect x='28' y='28' width='28' height='28' rx='6' stroke='%2350d080' stroke-width='4'/%3E%3Cline x1='103' y1='78' x2='128' y2='52' stroke='%2360a0f0' stroke-width='4' stroke-linecap='round'/%3E%3Crect x='124' y='28' width='28' height='28' rx='6' stroke='%2360a0f0' stroke-width='4'/%3E%3Cline x1='77' y1='102' x2='52' y2='128' stroke='%23e0c050' stroke-width='4' stroke-linecap='round'/%3E%3Crect x='28' y='124' width='28' height='28' rx='6' stroke='%23e0c050' stroke-width='4'/%3E%3Cline x1='103' y1='102' x2='128' y2='128' stroke='%23f06060' stroke-width='4' stroke-linecap='round'/%3E%3Crect x='124' y='124' width='28' height='28' rx='6' stroke='%23f06060' stroke-width='4'/%3E%3C/svg%3E">
 <style>
   :root {
     --bg: #1e1e2e;
@@ -324,7 +325,30 @@
 </svg>
 
 <header>
-  <h1>MCP Server Manager</h1>
+  <div style="display:flex;align-items:center;gap:10px">
+    <svg width="28" height="28" viewBox="0 0 180 180" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect width="180" height="180" rx="28" fill="var(--surface2)"/>
+      <circle cx="90" cy="90" r="22" stroke="var(--accent)" stroke-width="3.5"/>
+      <circle cx="90" cy="90" r="14" fill="var(--accent)" opacity="0.3"/>
+      <path d="M90 68L93 75H87Z" fill="var(--accent)"/>
+      <path d="M90 112L87 105H93Z" fill="var(--accent)"/>
+      <path d="M68 90L75 87V93Z" fill="var(--accent)"/>
+      <path d="M112 90L105 93V87Z" fill="var(--accent)"/>
+      <line x1="77" y1="78" x2="52" y2="52" stroke="var(--green)" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="4 3"/>
+      <rect x="28" y="28" width="28" height="28" rx="6" stroke="var(--green)" stroke-width="2.5"/>
+      <line x1="35" y1="38" x2="49" y2="38" stroke="var(--green)" stroke-width="2" stroke-linecap="round"/>
+      <line x1="103" y1="78" x2="128" y2="52" stroke="var(--blue)" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="4 3"/>
+      <rect x="124" y="28" width="28" height="28" rx="6" stroke="var(--blue)" stroke-width="2.5"/>
+      <line x1="131" y1="38" x2="145" y2="38" stroke="var(--blue)" stroke-width="2" stroke-linecap="round"/>
+      <line x1="77" y1="102" x2="52" y2="128" stroke="var(--yellow)" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="4 3"/>
+      <rect x="28" y="124" width="28" height="28" rx="6" stroke="var(--yellow)" stroke-width="2.5"/>
+      <line x1="35" y1="134" x2="49" y2="134" stroke="var(--yellow)" stroke-width="2" stroke-linecap="round"/>
+      <line x1="103" y1="102" x2="128" y2="128" stroke="var(--red)" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="4 3"/>
+      <rect x="124" y="124" width="28" height="28" rx="6" stroke="var(--red)" stroke-width="2.5"/>
+      <line x1="131" y1="134" x2="145" y2="134" stroke="var(--red)" stroke-width="2" stroke-linecap="round"/>
+    </svg>
+    <h1>MCP Server Manager</h1>
+  </div>
   <div class="header-actions">
     <div class="proxy-badge" id="proxyBadge">
       Help
