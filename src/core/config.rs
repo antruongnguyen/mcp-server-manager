@@ -6,7 +6,7 @@ use std::path::{Path, PathBuf};
 
 const MCP_SERVERS_KEY: &str = "mcpServers";
 const PORT_KEY: &str = "port";
-pub const DEFAULT_PORT: u16 = 17532;
+pub const DEFAULT_PORT: u16 = 3456;
 
 /// Return the MCPSM config file path: ~/.config/mcpsm/mcp.json
 pub fn config_path() -> io::Result<PathBuf> {

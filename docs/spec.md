@@ -34,7 +34,7 @@ MCPSM (MCP Server Manager) is a native macOS status bar application that manages
 - Start All / Stop All buttons in header for bulk operations (conditional visibility)
 
 ### F5. Configurable Port
-- Top-level `"port"` key in config JSON (default: `17532`)
+- Top-level `"port"` key in config JSON (default: `3456`)
 - Extracted at startup before tokio runtime starts
 - Passed to web server bind, status bar URL, and config save
 - Non-default port persisted in config saves; default port omitted to keep config clean
@@ -183,7 +183,7 @@ MCPSM (MCP Server Manager) is a native macOS status bar application that manages
 ### NFR3. Backward Compatibility
 - Config files without `disabled` field work (defaults to `false` = auto-start)
 - Old `enabled` field is silently ignored by serde (unknown fields are skipped)
-- Config files without `port` field work (defaults to `17532`)
+- Config files without `port` field work (defaults to `3456`)
 - Unknown top-level JSON keys in config are preserved across saves
 
 ### NFR4. Security

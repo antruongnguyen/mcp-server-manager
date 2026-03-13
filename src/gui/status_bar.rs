@@ -31,7 +31,7 @@ define_class! {
     impl DashboardHelper {
         #[unsafe(method(openDashboard:))]
         fn _open_dashboard(&self, _sender: *mut AnyObject) {
-            let port = DASHBOARD_PORT.get().copied().unwrap_or(17532);
+            let port = DASHBOARD_PORT.get().copied().unwrap_or(3456);
             let _ = open::that(format!("http://127.0.0.1:{}", port));
         }
 

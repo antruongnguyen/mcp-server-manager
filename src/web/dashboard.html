@@ -65,6 +65,7 @@
     background: var(--bg); color: var(--text);
     height: 100vh; display: flex; flex-direction: column;
   }
+  #app { display: flex; flex-direction: column; flex: 1; min-height: 0; }
 
   /* Header */
   header {
@@ -108,6 +109,8 @@
   .labeled-btn:hover { background: var(--border); color: var(--text); }
   .labeled-btn.accent { border-color: var(--accent); color: var(--accent); }
   .labeled-btn.accent:hover { background: var(--accent); color: #fff; }
+  .labeled-btn.warn { border-color:var(--yellow); color:var(--yellow); }
+  .labeled-btn.warn:hover { background: var(--yellow); color: #fff; }
   .labeled-btn.danger { border-color: var(--red); color: var(--red); }
   .labeled-btn.danger:hover { background: var(--red); color: #fff; }
   .labeled-btn.setup { border-color: var(--green); color: var(--green); }
@@ -162,14 +165,14 @@
   }
   .content-header h2 { font-size: 14px; font-weight: 600; }
   .content-header .status-badge {
-    font-size: 12px; padding: 3px 10px; border-radius: 12px;
+    font-size: 12px; padding: 2px 6px; border-radius: 12px;
     font-weight: 500;
   }
-  .status-badge.stopped { background: var(--surface2); color: var(--text2); }
-  .status-badge.starting, .status-badge.stopping, .status-badge.initializing { background: var(--yellow-bg); color: var(--yellow); }
-  .status-badge.running { background: var(--green-bg); color: var(--green); }
-  .status-badge.ready { background: var(--green-bg); color: var(--green); }
-  .status-badge.error { background: var(--red-bg); color: var(--red); }
+  .status-badge.stopped { background: var(--surface2); color: var(--text2); border: 1px solid var(--border); }
+  .status-badge.starting, .status-badge.stopping, .status-badge.initializing { background: var(--yellow-bg); color: var(--yellow); border: 1px solid var(--yellow); }
+  .status-badge.running { background: var(--green-bg); color: var(--green); border: 1px solid var(--green); }
+  .status-badge.ready { background: var(--green-bg); color: var(--green); border: 1px solid var(--green); }
+  .status-badge.error { background: var(--red-bg); color: var(--red); border: 1px solid var(--red); }
   .server-actions { display: flex; gap: 8px; align-items: center; }
 
   /* Enable toggle switch */
@@ -216,12 +219,12 @@
     width: 100%; height: 1px; background: var(--border); margin: 8px 0;
   }
   .transport-badge {
-    font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;
+    font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;
     padding: 2px 6px; border-radius: 3px;
     background: var(--surface2); color: var(--text2);
   }
-  .transport-badge.stdio { background: var(--green-bg); color: var(--green); }
-  .transport-badge.http { background: var(--blue-bg); color: var(--blue); }
+  .transport-badge.stdio { background: var(--green-bg); color: var(--green); border: 1px solid var(--green); }
+  .transport-badge.http { background: var(--blue-bg); color: var(--blue); border: 1px solid var(--blue); }
 
   /* Tabs */
   .tab-bar {
@@ -287,7 +290,7 @@
     font-size: 12px; line-height: 1.6;
     background: var(--bg);
   }
-  .log-viewer.expanded { flex: 2; }
+  .log-viewer.expanded { flex: 1; }
   .log-viewer.collapsed { display: none; }
   .log-line { white-space: pre-wrap; word-break: break-all; color: var(--text); opacity: 0.85; }
   .content-body { flex: 1; display: flex; flex-direction: column; overflow: hidden; min-height: 0; }
@@ -298,10 +301,10 @@
 
   /* Modal */
   .modal-overlay {
-    display: none; position: fixed; inset: 0; background: var(--modal-overlay);
+    position: fixed; inset: 0; background: var(--modal-overlay);
     z-index: 100; align-items: center; justify-content: center;
+    display: flex;
   }
-  .modal-overlay.visible { display: flex; }
   .modal {
     background: var(--surface); border: 1px solid var(--border);
     border-radius: 12px; padding: 24px; width: 480px; max-width: 90vw;
@@ -342,22 +345,24 @@
 
   /* Memory badge in header */
   .mem-badge {
-    font-size: 12px; padding: 3px 10px; border-radius: 12px;
+    font-size: 12px; padding: 6px 16px; border-radius: 16px;
     background: var(--blue-bg); color: var(--blue); font-weight: 500;
     display: flex; align-items: center; gap: 6px;
     font-variant-numeric: tabular-nums;
+    border: 1px solid var(--blue);
   }
-  .mem-badge .mem-label { font-size: 10px; opacity: 0.7; }
+  .mem-badge .label { font-size: 10px; opacity: 0.7; }
   .mem-badge .mem-sep { opacity: 0.4; }
 
   /* Server memory in content-header */
-  .server-mem {
-    font-size: 12px; padding: 3px 10px; border-radius: 12px;
+  .labeled-badge {
+    font-size: 12px; padding: 2px 6px; border-radius: 12px;
     background: var(--blue-bg); color: var(--blue); font-weight: 500;
     font-variant-numeric: tabular-nums;
     display: inline-flex; align-items: center; gap: 5px;
+    border: 1px solid var(--blue);
   }
-  .server-mem .mem-label { font-size: 10px; opacity: 0.7; }
+  .labeled-badge .label { font-size: 10px; opacity: 0.7; }
 
   /* Setup panel (inline in content area) */
   .setup-panel { padding: 24px; overflow-y: auto; flex: 1; }
@@ -391,6 +396,56 @@
   .shutdown-overlay .shutdown-hint {
     font-size: 12px; color: var(--text2); opacity: 0.6;
   }
+
+  /* Home panel */
+  .home-panel { padding: 1.5rem; overflow-y: auto; flex: 1; }
+  .home-stats { display: flex; gap: 1.5rem; margin-bottom: 1.5rem; flex-wrap: wrap; justify-content: center; }
+  .stat-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 10px 14px;
+    display: flex; flex-direction: column; gap: .5rem; min-width: 100px; align-items: center;
+  }
+  .stat-value { font-size: 20px; font-weight: 700; color: var(--text); font-variant-numeric: tabular-nums; }
+  .stat-value.green { color: var(--green); }
+  .stat-value.red { color: var(--red); }
+  .stat-value.accent { color: var(--accent); }
+  .stat-label { font-size: 10px; color: var(--text2); text-transform: uppercase; letter-spacing: 0.3px; font-weight: 600; }
+  .home-section { margin-bottom: 20px; }
+  .home-section-title { font-size: 12px; font-weight: 600; color: var(--text); margin-bottom: 8px; }
+  .home-info {
+    font-size: 12px; color: var(--text2); line-height: 1.6;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 12px 16px;
+  }
+  .home-info code {
+    background: var(--surface2); padding: 1px 5px; border-radius: 3px;
+    font-family: "SF Mono", "Menlo", "Consolas", monospace; font-size: 11px; color: var(--text);
+  }
+  .agent-tabs {
+    display: flex; gap: 0; border: 1px solid var(--border); border-radius: var(--radius) var(--radius) 0 0;
+    background: var(--surface); overflow-x: auto;
+  }
+  .agent-tab {
+    padding: 7px 14px; font-size: 11px; font-weight: 500; color: var(--text2);
+    background: none; border: none; border-bottom: 2px solid transparent;
+    cursor: pointer; transition: all 0.15s; font-family: inherit; white-space: nowrap;
+  }
+  .agent-tab:hover { color: var(--text); }
+  .agent-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+  .agent-code-block {
+    background: var(--bg); border: 1px solid var(--border); border-top: none;
+    border-radius: 0 0 var(--radius) var(--radius); padding: 14px 16px;
+    font-family: "SF Mono", "Menlo", "Consolas", monospace; font-size: 12px;
+    line-height: 1.6; color: var(--text); white-space: pre; overflow-x: auto;
+    position: relative;
+  }
+  .agent-code-block .copy-float {
+    position: absolute; top: 8px; right: 8px;
+  }
+  .home-header-row {
+    display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;
+  }
+  .clickable-brand { cursor: pointer; display: flex; align-items: center; gap: 10px; }
 </style>
 <script>
   // Apply theme before first paint to prevent flash
@@ -399,323 +454,76 @@
     document.documentElement.setAttribute('data-theme', t);
   })();
 </script>
+<script type="importmap">
+{
+  "imports": {
+    "preact": "https://esm.sh/preact@10.25.4",
+    "preact/": "https://esm.sh/preact@10.25.4/",
+    "@preact/signals": "https://esm.sh/@preact/signals@1.3.0?external=preact",
+    "htm/preact": "https://esm.sh/htm@3.1.1/preact?external=preact"
+  }
+}
+</script>
 </head>
 <body>
+<div id="app"></div>
+<script type="module">
+import { render } from 'preact';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'preact/hooks';
+import { signal, computed, batch } from '@preact/signals';
+import { html } from 'htm/preact';
 
-<!-- SVG Icon Definitions -->
-<svg xmlns="http://www.w3.org/2000/svg" style="display:none">
-  <symbol id="icon-plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-    <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
-  </symbol>
-  <symbol id="icon-trash" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-    <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
-  </symbol>
-  <symbol id="icon-square" viewBox="0 0 24 24" fill="currentColor" stroke="none">
-    <rect x="6" y="6" width="12" height="12" rx="2"/>
-  </symbol>
-  <symbol id="icon-pencil" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-    <path d="M17 3a2.83 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/>
-  </symbol>
-  <symbol id="icon-chevron-up" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-    <polyline points="18 15 12 9 6 15"/>
-  </symbol>
-  <symbol id="icon-chevron-down" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-    <polyline points="6 9 12 15 18 9"/>
-  </symbol>
-  <symbol id="icon-play" viewBox="0 0 24 24" fill="currentColor" stroke="none">
-    <polygon points="6,4 20,12 6,20"/>
-  </symbol>
-  <symbol id="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-    <circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
-  </symbol>
-  <symbol id="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-    <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
-  </symbol>
-  <symbol id="icon-help" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-    <circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/>
-  </symbol>
-</svg>
+// ---------------------------------------------------------------------------
+// Global Signals
+// ---------------------------------------------------------------------------
+const servers = signal({});
+const logs = signal({});
+const templates = signal([]);
+const memoryData = signal(null);
+const selectedId = signal(null);
+const showingSetup = signal(false);
+const activeTab = signal('tools');
+const logExpanded = signal(false);
+const modalState = signal({ type: null, data: null });
+const shutdownFlag = signal(false);
 
-<header>
-  <div style="display:flex;align-items:center;gap:10px">
-    <svg width="28" height="28" viewBox="0 0 180 180" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <circle cx="90" cy="90" r="22" stroke="var(--logo-accent)" stroke-width="5"/>
-      <circle cx="90" cy="90" r="13" fill="var(--logo-accent)" opacity="0.35"/>
-      <path d="M90 66L94 76H86Z" fill="var(--logo-accent)"/>
-      <path d="M90 114L86 104H94Z" fill="var(--logo-accent)"/>
-      <path d="M66 90L76 86V94Z" fill="var(--logo-accent)"/>
-      <path d="M114 90L104 94V86Z" fill="var(--logo-accent)"/>
-      <line x1="76" y1="76" x2="52" y2="52" stroke="var(--logo-green)" stroke-width="4" stroke-linecap="round"/>
-      <rect x="28" y="28" width="28" height="28" rx="6" stroke="var(--logo-green)" stroke-width="4"/>
-      <line x1="35" y1="39" x2="49" y2="39" stroke="var(--logo-green)" stroke-width="3" stroke-linecap="round"/>
-      <line x1="103" y1="76" x2="128" y2="52" stroke="var(--logo-blue)" stroke-width="4" stroke-linecap="round"/>
-      <rect x="124" y="28" width="28" height="28" rx="6" stroke="var(--logo-blue)" stroke-width="4"/>
-      <line x1="131" y1="39" x2="145" y2="39" stroke="var(--logo-blue)" stroke-width="3" stroke-linecap="round"/>
-      <line x1="76" y1="104" x2="52" y2="128" stroke="var(--logo-yellow)" stroke-width="4" stroke-linecap="round"/>
-      <rect x="28" y="124" width="28" height="28" rx="6" stroke="var(--logo-yellow)" stroke-width="4"/>
-      <line x1="35" y1="135" x2="49" y2="135" stroke="var(--logo-yellow)" stroke-width="3" stroke-linecap="round"/>
-      <line x1="103" y1="104" x2="128" y2="128" stroke="var(--logo-red)" stroke-width="4" stroke-linecap="round"/>
-      <rect x="124" y="124" width="28" height="28" rx="6" stroke="var(--logo-red)" stroke-width="4"/>
-      <line x1="131" y1="135" x2="145" y2="135" stroke="var(--logo-red)" stroke-width="3" stroke-linecap="round"/>
-    </svg>
-    <h1>MCP Server Manager</h1>
-  </div>
-  <div class="header-actions">
-    <span class="mem-badge" id="memBadge" title="RAM usage" style="display:none">
-      <span class="mem-label">App</span><span id="memApp">—</span>
-      <span class="mem-sep">|</span>
-      <span class="mem-label">Servers</span><span id="memServers">—</span>
-    </span>
-    <button class="labeled-btn accent" id="startAllBtn" onclick="startAllServers()" title="Start All Enabled Servers" style="display:none">
-      <svg class="icon"><use href="#icon-play"/></svg> Start All
-    </button>
-    <button class="labeled-btn danger" id="stopAllBtn" onclick="stopAllServers()" title="Stop All Started Servers" style="display:none">
-      <svg class="icon"><use href="#icon-square"/></svg> Stop All
-    </button>
-    <button class="labeled-btn setup" onclick="showSetup()" title="Connection instructions">
-      <svg class="icon"><use href="#icon-help"/></svg> Setup
-    </button>
-    <button class="icon-btn" onclick="toggleTheme()" id="themeToggle" title="Toggle theme">
-      <svg class="icon"><use href="#icon-sun"/></svg>
-    </button>
-  </div>
-</header>
+// ---------------------------------------------------------------------------
+// Computed Values
+// ---------------------------------------------------------------------------
+const selectedServer = computed(() => {
+  const id = selectedId.value;
+  return id ? servers.value[id] || null : null;
+});
 
-<div class="main">
-  <div class="sidebar">
-    <div class="sidebar-header">
-      <span>Servers</span>
-      <button class="icon-btn accent" onclick="openServerModal()" title="Add Server">
-        <svg class="icon"><use href="#icon-plus"/></svg>
-      </button>
-    </div>
-    <div class="server-list" id="serverList"></div>
-  </div>
-  <div class="content" id="content">
-    <div class="empty-state" id="emptyState">Select a server to view details</div>
-  </div>
-</div>
+const sortedServerIds = computed(() => {
+  const all = Object.keys(servers.value).sort();
+  return {
+    enabled: all.filter(id => !servers.value[id].disabled),
+    disabled: all.filter(id => servers.value[id].disabled),
+  };
+});
 
-<!-- Add/Edit Server Modal -->
-<div class="modal-overlay" id="serverModal">
-  <div class="modal wide">
-    <h3 id="serverModalTitle">Add Server</h3>
-    <div id="templateGroup" class="form-group">
-      <label>Template (optional)</label>
-      <select id="templateSelect" onchange="applyTemplate()">
-        <option value="">Custom...</option>
-      </select>
-    </div>
-    <div class="form-group">
-      <label>Server ID</label>
-      <input id="serverId" placeholder="my-server" pattern="^[a-zA-Z0-9_-]+$" title="Only letters, numbers, dashes and underscores">
-    </div>
-    <div class="transport-toggle" id="transportToggle">
-      <button onclick="setTransport('stdio')" id="transportStdio" class="active">STDIO</button>
-      <button onclick="setTransport('http')" id="transportHttp">HTTP</button>
-    </div>
-    <div id="stdioFields">
-      <div class="form-group">
-        <label>Command</label>
-        <input id="serverCommand" placeholder="npx">
-      </div>
-      <div class="form-group">
-        <label>Arguments (one per line)</label>
-        <textarea id="serverArgs" placeholder="-y&#10;@example/server"></textarea>
-      </div>
-      <div class="form-group">
-        <label>Environment (KEY=VALUE, one per line)</label>
-        <textarea id="serverEnv" placeholder="FOO=bar"></textarea>
-      </div>
-    </div>
-    <div id="httpFields" style="display:none">
-      <div class="form-group">
-        <label>URL</label>
-        <input id="serverUrl" placeholder="http://localhost:8080/mcp">
-      </div>
-      <div class="form-group">
-        <label>Authorization Header (Bearer token, optional)</label>
-        <input id="serverAuthHeader" placeholder="your-token-here">
-      </div>
-    </div>
-    <div class="modal-actions">
-      <button class="btn" onclick="closeServerModal()">Cancel</button>
-      <button class="btn btn-accent" onclick="submitServerModal()" id="serverModalSubmit">Add</button>
-    </div>
-  </div>
-</div>
+const hasRunning = computed(() =>
+  Object.values(servers.value).some(s =>
+    s.status && (s.status.type === 'Running' || s.status.type === 'Initializing' || s.status.type === 'Ready' || s.status.type === 'Starting')
+  )
+);
 
-<!-- Delete Confirmation Modal -->
-<div class="modal-overlay confirm-modal" id="confirmModal">
-  <div class="modal">
-    <h3 id="confirmTitle">Confirm Delete</h3>
-    <div class="confirm-message" id="confirmMessage"></div>
-    <div class="modal-actions">
-      <button class="btn" onclick="closeConfirmModal()">Cancel</button>
-      <button class="btn btn-danger" id="confirmAction" onclick="executeConfirmedDelete()">Delete</button>
-    </div>
-  </div>
-</div>
+const hasStartable = computed(() =>
+  Object.entries(servers.value).some(([_, s]) =>
+    !s.disabled && (!s.status || s.status.type === 'Stopped' || s.status.type === 'Error')
+  )
+);
 
-
-<script>
-let servers = {};
-let selectedId = null;
-let logs = {};
-let templates = [];
-let editingServerId = null;
-let currentTransport = 'stdio';
-let logExpanded = false;
-let activeTab = 'tools';
-let pendingDeleteId = null;
-let memoryData = null;
-let showingSetup = false;
-
-function mcpUrl() { return window.location.origin + '/mcp'; }
-
-// --- Init ---
-async function init() {
-  updateThemeIcon();
-  await loadTemplates();
-  await refreshServers();
-  connectSSE();
-  pollMemory();
-  setInterval(pollMemory, 5000);
-}
-
+// ---------------------------------------------------------------------------
+// Utilities
+// ---------------------------------------------------------------------------
 function formatBytes(bytes) {
   if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(0) + ' KB';
   if (bytes < 1024 * 1024 * 1024) return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
   return (bytes / (1024 * 1024 * 1024)).toFixed(2) + ' GB';
 }
 
-async function pollMemory() {
-  try {
-    const res = await fetch('/api/memory');
-    memoryData = await res.json();
-    updateMemBadge();
-    // Update server memory in content header if visible
-    if (selectedId && !showingSetup) updateServerMemDisplay();
-  } catch (e) { /* ignore */ }
-}
-
-function updateMemBadge() {
-  const badge = document.getElementById('memBadge');
-  const appEl = document.getElementById('memApp');
-  const srvEl = document.getElementById('memServers');
-  if (!memoryData || !badge || !appEl || !srvEl) return;
-  appEl.textContent = formatBytes(memoryData.self.mem || 0);
-  srvEl.textContent = formatBytes(memoryData.servers_total || 0);
-  badge.style.display = '';
-}
-
-function getServerMem(id) {
-  if (!memoryData || !memoryData.servers || !memoryData.servers[id]) return null;
-  return memoryData.servers[id].mem;
-}
-
-function updateServerMemDisplay() {
-  const el = document.getElementById('serverMemValue');
-  if (!el || !selectedId) return;
-  const s = servers[selectedId];
-  const isRunning = s && s.status && (s.status.type === 'Running' || s.status.type === 'Initializing' || s.status.type === 'Ready');
-  if (!isRunning) { el.style.display = 'none'; return; }
-  const mem = getServerMem(selectedId);
-  if (mem != null) {
-    el.innerHTML = '<span class="mem-label">RAM</span>' + escHtml(formatBytes(mem));
-    el.style.display = '';
-  } else {
-    el.style.display = 'none';
-  }
-}
-
-async function loadTemplates() {
-  try {
-    const res = await fetch('/api/templates');
-    templates = await res.json();
-    const sel = document.getElementById('templateSelect');
-    templates.forEach(t => {
-      const opt = document.createElement('option');
-      opt.value = t.name;
-      opt.textContent = t.name + ' — ' + t.description;
-      sel.appendChild(opt);
-    });
-  } catch (e) { console.error('Failed to load templates', e); }
-}
-
-async function refreshServers() {
-  try {
-    const res = await fetch('/api/servers');
-    servers = await res.json();
-    renderSidebar();
-    if (selectedId) renderContent();
-  } catch (e) { console.error('Failed to load servers', e); }
-}
-
-// --- SSE ---
-function connectSSE() {
-  const es = new EventSource('/api/events');
-  es.onmessage = (e) => {
-    const evt = JSON.parse(e.data);
-    handleEvent(evt);
-  };
-  es.onerror = () => {
-    console.warn('SSE disconnected, reconnecting...');
-  };
-}
-
-function handleEvent(evt) {
-  switch (evt.type) {
-    case 'ServerStatusChanged':
-      if (servers[evt.id]) {
-        servers[evt.id].status = evt.status;
-        // Clear runtime state when server stops
-        if (evt.status.type === 'Stopped') {
-          servers[evt.id].tools = [];
-          servers[evt.id].peer_info = null;
-          logs[evt.id] = [];
-        }
-      } else {
-        servers[evt.id] = { config: { command: '', args: [], env: {} }, status: evt.status, tools: [], disabled: false };
-        refreshServers();
-        return;
-      }
-      renderSidebar();
-      if (selectedId === evt.id) renderContent();
-      break;
-    case 'McpToolsChanged':
-      if (servers[evt.id]) {
-        servers[evt.id].tools = evt.tools || [];
-      }
-      renderSidebar();
-      if (selectedId === evt.id) renderContent();
-      break;
-    case 'McpServerReady':
-      refreshServers();
-      break;
-    case 'LogLine':
-      if (!logs[evt.id]) logs[evt.id] = [];
-      logs[evt.id].push(evt.line);
-      if (logs[evt.id].length > 200) logs[evt.id] = logs[evt.id].slice(-200);
-      if (selectedId === evt.id) appendLog(evt.line);
-      break;
-    case 'LogSnapshot':
-      logs[evt.id] = evt.lines || [];
-      if (selectedId === evt.id) renderContent();
-      break;
-    case 'ConfigLoaded':
-      refreshServers();
-      break;
-    case 'Error':
-      console.error('Backend error:', evt.message);
-      break;
-    case 'Shutdown':
-      handleShutdown();
-      break;
-  }
-}
-
-// --- Render ---
 function statusClass(status) {
   if (!status) return 'stopped';
   return status.type.toLowerCase();
@@ -726,543 +534,950 @@ function statusLabel(status) {
   switch (status.type) {
     case 'Stopped': return 'Stopped';
     case 'Starting': return 'Starting';
-    case 'Running': return 'Running (PID ' + status.pid + ')';
-    case 'Initializing': return 'Initializing' + (status.pid ? ' (PID ' + status.pid + ')' : '');
-    case 'Ready': return 'Ready' + (status.pid ? ' (PID ' + status.pid + ')' : ' (remote)');
+    case 'Running': return 'Running';
+    case 'Initializing': return 'Initializing';
+    case 'Ready': return 'Ready';
     case 'Stopping': return 'Stopping';
     case 'Error': return 'Error: ' + status.message;
     default: return status.type;
   }
 }
 
-function renderSidebar() {
-  const list = document.getElementById('serverList');
-  const ids = Object.keys(servers).sort();
-  const enabledIds = ids.filter(id => !servers[id].disabled);
-  const disabledIds = ids.filter(id => servers[id].disabled);
-
-  function renderItem(id) {
-    const s = servers[id];
-    const cls = statusClass(s.status);
-    const active = id === selectedId ? ' active' : '';
-    const disabled = s.disabled ? ' disabled' : '';
-    const toolCount = (s.tools && s.tools.length) || 0;
-    const toolBadge = toolCount > 0
-      ? '<span class="server-tools-count">' + toolCount + ' tools</span>'
-      : '';
-    return '<div class="server-item' + active + disabled + '" onclick="selectServer(\'' + escHtml(id) + '\')">'
-      + '<span class="status-dot ' + cls + '"></span>'
-      + '<span class="server-name">' + escHtml(id) + '</span>'
-      + toolBadge
-      + '</div>';
+function statusPid(status) {
+  if (!status) return null;
+  switch (status.type) {
+    case 'Running': return { label: 'PID', value: String(status.pid) };
+    case 'Initializing': return status.pid ? { label: 'PID', value: String(status.pid) } : null;
+    case 'Ready': return status.pid ? { label: 'PID', value: String(status.pid) } : { label: null, value: 'Remote' };
+    default: return null;
   }
-
-  let html = enabledIds.map(renderItem).join('');
-  if (enabledIds.length > 0 && disabledIds.length > 0) {
-    html += '<div class="sidebar-sep"></div>';
-  }
-  html += disabledIds.map(renderItem).join('');
-  list.innerHTML = html;
-  updateHeaderButtons();
 }
 
-function renderContent() {
-  const el = document.getElementById('content');
-  if (showingSetup) {
-    renderSetupContent(el);
-    return;
-  }
-  if (!selectedId || !servers[selectedId]) {
-    el.innerHTML = '<div class="empty-state">Select a server to view details</div>';
-    return;
-  }
-  const s = servers[selectedId];
-  const cls = statusClass(s.status);
-  const isRunning = s.status && (s.status.type === 'Running' || s.status.type === 'Initializing' || s.status.type === 'Ready');
-  const tools = s.tools || [];
-  const hasPeer = !!s.peer_info;
-
-  // Config details — merged with MCP peer info
-  let configHtml = '<div class="config-details">';
-
-  // Transport row
-  configHtml += '<div class="config-row">';
-  if (s.config.command) {
-    const cmdLine = escHtml(s.config.command + ' ' + (s.config.args || []).join(' '));
-    const envCount = Object.keys(s.config.env || {}).length;
-    configHtml += '<span class="transport-badge stdio">STDIO</span> '
-      + '<code>' + cmdLine + '</code>';
-    if (envCount > 0) configHtml += '<span style="font-size:11px">' + envCount + ' env var' + (envCount > 1 ? 's' : '') + '</span>';
-  } else if (s.config.url) {
-    configHtml += '<span class="transport-badge http">HTTP</span> '
-      + '<code>' + escHtml(s.config.url) + '</code>';
-    if (s.config.auth_header) configHtml += '<span style="font-size:11px">with auth</span>';
-  }
-  configHtml += '</div>';
-
-  // MCP peer info rows (merged into config-details)
-  if (hasPeer) {
-    const p = s.peer_info;
-    configHtml += '<div class="config-sep"></div>';
-    configHtml += '<div class="config-row">'
-      + '<span class="config-label">Server</span>'
-      + '<span class="config-value">' + escHtml(p.name) + ' v' + escHtml(p.version) + '</span>'
-      + '</div>';
-    if (p.title) {
-      configHtml += '<div class="config-row">'
-        + '<span class="config-label">Title</span>'
-        + '<span style="color:var(--text)">' + escHtml(p.title) + '</span>'
-        + '</div>';
-    }
-    if (p.description) {
-      configHtml += '<div class="config-row">'
-        + '<span class="config-label">About</span>'
-        + '<span style="color:var(--text)">' + escHtml(p.description) + '</span>'
-        + '</div>';
-    }
-    configHtml += '<div class="config-row">'
-      + '<span class="config-label">Protocol</span>'
-      + '<span class="config-value">' + escHtml(p.protocol_version) + '</span>'
-      + '</div>';
-    if (p.instructions) {
-      configHtml += '<div class="config-row" style="align-items:flex-start">'
-        + '<span class="config-label">Instructions</span>'
-        + '<span class="config-value" style="white-space:pre-wrap">' + escHtml(p.instructions) + '</span>'
-        + '</div>';
-    }
-  }
-
-  configHtml += '</div>';
-
-  // Tabs
-  const caps = hasPeer ? s.peer_info.capabilities : null;
-  let tabs = [];
-  tabs.push({ key: 'tools', label: 'Tools (' + tools.length + ')' });
-  if (caps && caps.resources) tabs.push({ key: 'resources', label: 'Resources' });
-  if (caps && caps.prompts) tabs.push({ key: 'prompts', label: 'Prompts' });
-  if (caps && caps.logging) tabs.push({ key: 'logging', label: 'Logging' });
-
-  if (!tabs.find(t => t.key === activeTab)) activeTab = 'tools';
-
-  let tabBarHtml = '<div class="tab-bar">';
-  tabs.forEach(t => {
-    const act = t.key === activeTab ? ' active' : '';
-    tabBarHtml += '<button class="tab-btn' + act + '" onclick="switchTab(\'' + t.key + '\')">' + t.label + '</button>';
-  });
-  tabBarHtml += '</div>';
-
-  let tabContentHtml = '<div class="tab-content">';
-  if (activeTab === 'tools') {
-    tabContentHtml += renderToolsContent(tools);
-  } else {
-    tabContentHtml += '<div class="tab-placeholder">Not yet implemented</div>';
-  }
-  tabContentHtml += '</div>';
-
-  // Enable/Disable toggle (checked = enabled = not disabled)
-  const isEnabled = !s.disabled;
-  const autoStartChecked = isEnabled ? ' checked' : '';
-  const toggleStateLabel = isEnabled ? 'Enabled' : 'Disabled';
-  const toggleHtml = '<label class="toggle-switch" title="' + (isEnabled ? 'Disable server (stops if running)' : 'Enable server') + '">'
-    + '<input type="checkbox"' + autoStartChecked + ' onchange="toggleDisabled(\'' + escHtml(selectedId) + '\', !this.checked)">'
-    + '<span class="toggle-slider"></span>'
-    + '<span class="toggle-label">' + toggleStateLabel + '</span></label>';
-
-  // Action buttons with icons
-  let actionBtns = toggleHtml;
-  actionBtns += '<button class="icon-btn" onclick="openEditModal(\'' + escHtml(selectedId) + '\')" title="Edit"><svg class="icon"><use href="#icon-pencil"/></svg></button>';
-  if (isRunning) {
-    actionBtns += '<button class="icon-btn danger" onclick="stopServer(\'' + escHtml(selectedId) + '\')" title="Stop"><svg class="icon"><use href="#icon-square"/></svg></button>';
-  } else if (isEnabled) {
-    actionBtns += '<button class="icon-btn accent" onclick="startServer(\'' + escHtml(selectedId) + '\')" title="Start"><svg class="icon"><use href="#icon-play"/></svg></button>';
-  }
-  actionBtns += '<button class="icon-btn danger" onclick="confirmDeleteServer(\'' + escHtml(selectedId) + '\')" title="Delete"><svg class="icon"><use href="#icon-trash"/></svg></button>';
-
-  // Log header with chevron + trash clear button
-  const logChevronId = logExpanded ? 'icon-chevron-down' : 'icon-chevron-up';
-  const logViewerClass = logExpanded ? 'expanded' : 'collapsed';
-  const logLines = (logs[selectedId] || []).map(l => '<div class="log-line">' + escHtml(l) + '</div>').join('');
-
-  // Server memory (only for running servers)
-  const serverRss = isRunning ? getServerMem(selectedId) : null;
-  const serverMemHtml = serverRss != null
-    ? '<span class="server-mem" id="serverMemValue"><span class="mem-label">RAM</span>' + formatBytes(serverRss) + '</span>'
-    : (isRunning ? '<span class="server-mem" id="serverMemValue" style="display:none"></span>' : '');
-
-  el.innerHTML = '<div class="content-header">'
-    + '<div style="display:flex;align-items:center;gap:12px">'
-    + '<h2>' + escHtml(selectedId) + '</h2>'
-    + '<span class="status-badge ' + cls + '">' + statusLabel(s.status) + '</span>'
-    + serverMemHtml
-    + '</div>'
-    + '<div class="server-actions">' + actionBtns + '</div></div>'
-    + '<div class="content-body">'
-    + configHtml
-    + tabBarHtml
-    + tabContentHtml
-    + '<div class="log-header" onclick="toggleLogPanel()">'
-    + '<div class="log-header-left">'
-    + '<svg class="icon" style="width:12px;height:12px;color:var(--text2)"><use href="#' + logChevronId + '"/></svg>'
-    + '<span class="log-header-label">Logs</span>'
-    + '</div>'
-    + '<button class="icon-btn danger" style="width:22px;height:22px" onclick="event.stopPropagation();clearLogs(\'' + escHtml(selectedId) + '\')" title="Clear logs">'
-    + '<svg class="icon" style="width:10px;height:10px"><use href="#icon-trash"/></svg></button>'
-    + '</div>'
-    + '<div class="log-viewer ' + logViewerClass + '" id="logViewer">'
-    + (logLines || '<div class="log-line" style="color:var(--text2)">No logs yet</div>')
-    + '</div>'
-    + '</div>';
-
-  if (logExpanded) scrollLogToBottom();
+function isRunning(status) {
+  return status && (status.type === 'Running' || status.type === 'Initializing' || status.type === 'Ready');
 }
 
-function renderToolsContent(tools) {
-  if (tools.length === 0) {
-    return '<div class="tab-placeholder">No tools available</div>';
-  }
-  const toolItems = tools.map(t => {
-    if (typeof t === 'string') {
-      return '<div class="tool-item"><span class="tool-name">' + escHtml(t) + '</span></div>';
-    }
-    let html = '<div class="tool-item"><div><span class="tool-name">' + escHtml(t.name) + '</span>';
-    if (t.title) html += '<span class="tool-title">' + escHtml(t.title) + '</span>';
-    html += '</div>';
-    if (t.description) html += '<div class="tool-desc">' + escHtml(t.description) + '</div>';
-    if (t.annotations) {
-      html += '<div class="tool-annotations">';
-      if (t.annotations.read_only_hint === true) html += '<span class="annot-badge readonly">read-only</span>';
-      if (t.annotations.destructive_hint === true) html += '<span class="annot-badge destructive">destructive</span>';
-      if (t.annotations.idempotent_hint === true) html += '<span class="annot-badge idempotent">idempotent</span>';
-      if (t.annotations.open_world_hint === true) html += '<span class="annot-badge openworld">open-world</span>';
-      html += '</div>';
-    }
-    html += '</div>';
-    return html;
-  }).join('');
-  return '<div class="tools-panel">' + toolItems + '</div>';
+function mcpUrl() { return window.location.origin + '/mcp'; }
+
+function getServerMem(id) {
+  const md = memoryData.value;
+  if (!md || !md.servers || !md.servers[id]) return null;
+  return md.servers[id].mem;
 }
 
-function switchTab(tab) {
-  activeTab = tab;
-  renderContent();
+// ---------------------------------------------------------------------------
+// API Functions
+// ---------------------------------------------------------------------------
+async function fetchServers() {
+  try {
+    const res = await fetch('/api/servers');
+    servers.value = await res.json();
+  } catch (e) { console.error('Failed to load servers', e); }
 }
 
-function toggleLogPanel() {
-  logExpanded = !logExpanded;
-  renderContent();
+async function fetchTemplates() {
+  try {
+    const res = await fetch('/api/templates');
+    templates.value = await res.json();
+  } catch (e) { console.error('Failed to load templates', e); }
 }
 
-function appendLog(line) {
-  const viewer = document.getElementById('logViewer');
-  if (!viewer || !logExpanded) return;
-  // Remove "No logs yet" placeholder
-  if (viewer.children.length === 1 && viewer.children[0].style.color) {
-    viewer.innerHTML = '';
-  }
-  const div = document.createElement('div');
-  div.className = 'log-line';
-  div.textContent = line;
-  viewer.appendChild(div);
-  while (viewer.children.length > 200) {
-    viewer.removeChild(viewer.firstChild);
-  }
-  scrollLogToBottom();
+async function pollMemory() {
+  try {
+    const res = await fetch('/api/memory');
+    memoryData.value = await res.json();
+  } catch (e) { /* ignore */ }
 }
 
-function scrollLogToBottom() {
-  const viewer = document.getElementById('logViewer');
-  if (viewer) viewer.scrollTop = viewer.scrollHeight;
-}
-
-// --- Actions ---
-function selectServer(id) {
-  selectedId = id;
-  showingSetup = false;
-  activeTab = 'tools';
-  renderSidebar();
-  renderContent();
-  fetch('/api/servers/' + encodeURIComponent(id) + '/logs', { method: 'GET' });
-}
-
-async function startServer(id) {
+async function apiStartServer(id) {
   await fetch('/api/servers/' + encodeURIComponent(id) + '/start', { method: 'POST' });
 }
 
-async function stopServer(id) {
+async function apiStopServer(id) {
   await fetch('/api/servers/' + encodeURIComponent(id) + '/stop', { method: 'POST' });
 }
 
-function confirmDeleteServer(id) {
-  pendingDeleteId = id;
-  document.getElementById('confirmMessage').textContent = 'Are you sure you want to delete server "' + id + '"? This action cannot be undone.';
-  document.getElementById('confirmModal').classList.add('visible');
+async function apiAddServer(id, config) {
+  await fetch('/api/servers', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ id, config }),
+  });
+  setTimeout(fetchServers, 200);
 }
 
-function closeConfirmModal() {
-  pendingDeleteId = null;
-  document.getElementById('confirmModal').classList.remove('visible');
+async function apiUpdateServer(id, config) {
+  await fetch('/api/servers/' + encodeURIComponent(id), {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ config }),
+  });
+  setTimeout(fetchServers, 200);
 }
 
-async function executeConfirmedDelete() {
-  if (!pendingDeleteId) return;
-  const id = pendingDeleteId;
-  closeConfirmModal();
+async function apiDeleteServer(id) {
   await fetch('/api/servers/' + encodeURIComponent(id), { method: 'DELETE' });
-  delete servers[id];
-  delete logs[id];
-  if (selectedId === id) selectedId = null;
-  renderSidebar();
-  renderContent();
+  batch(() => {
+    const s = { ...servers.value };
+    delete s[id];
+    servers.value = s;
+    const l = { ...logs.value };
+    delete l[id];
+    logs.value = l;
+    if (selectedId.value === id) selectedId.value = null;
+  });
 }
 
-async function toggleDisabled(id, disabled) {
+async function apiToggleDisabled(id, disabled) {
   await fetch('/api/servers/' + encodeURIComponent(id) + '/disabled', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ disabled }),
   });
-  if (servers[id]) servers[id].disabled = disabled;
-  renderSidebar();
-  renderContent();
-  updateHeaderButtons();
+  if (servers.value[id]) {
+    servers.value = { ...servers.value, [id]: { ...servers.value[id], disabled } };
+  }
 }
 
-async function startAllServers() {
+async function apiStartAll() {
   await fetch('/api/servers/start-all', { method: 'POST' });
 }
 
-async function stopAllServers() {
+async function apiStopAll() {
   await fetch('/api/servers/stop-all', { method: 'POST' });
 }
 
-function updateHeaderButtons() {
-  const ids = Object.keys(servers);
-  const anyRunning = ids.some(id => {
-    const s = servers[id];
-    return s.status && (s.status.type === 'Running' || s.status.type === 'Initializing' || s.status.type === 'Ready' || s.status.type === 'Starting');
-  });
-  const anyStartable = ids.some(id => {
-    const s = servers[id];
-    return !s.disabled && (!s.status || s.status.type === 'Stopped' || s.status.type === 'Error');
-  });
-  document.getElementById('startAllBtn').style.display = anyStartable ? '' : 'none';
-  document.getElementById('stopAllBtn').style.display = anyRunning ? '' : 'none';
+function apiRequestLogs(id) {
+  fetch('/api/servers/' + encodeURIComponent(id) + '/logs', { method: 'GET' });
 }
 
-// --- Server Modal (Add/Edit) ---
-function setTransport(type) {
-  currentTransport = type;
-  document.getElementById('transportStdio').className = type === 'stdio' ? 'active' : '';
-  document.getElementById('transportHttp').className = type === 'http' ? 'active' : '';
-  document.getElementById('stdioFields').style.display = type === 'stdio' ? '' : 'none';
-  document.getElementById('httpFields').style.display = type === 'http' ? '' : 'none';
-}
-
-function openServerModal() {
-  editingServerId = null;
-  document.getElementById('serverModalTitle').textContent = 'Add Server';
-  document.getElementById('serverModalSubmit').textContent = 'Add';
-  document.getElementById('templateGroup').style.display = '';
-  document.getElementById('serverId').disabled = false;
-  document.getElementById('serverId').value = '';
-  document.getElementById('serverCommand').value = '';
-  document.getElementById('serverArgs').value = '';
-  document.getElementById('serverEnv').value = '';
-  document.getElementById('serverUrl').value = '';
-  document.getElementById('serverAuthHeader').value = '';
-  document.getElementById('templateSelect').value = '';
-  setTransport('stdio');
-  document.getElementById('serverModal').classList.add('visible');
-}
-
-function openEditModal(id) {
-  const s = servers[id];
-  if (!s) return;
-  editingServerId = id;
-  document.getElementById('serverModalTitle').textContent = 'Edit Server';
-  document.getElementById('serverModalSubmit').textContent = 'Save';
-  document.getElementById('templateGroup').style.display = 'none';
-  document.getElementById('serverId').value = id;
-  document.getElementById('serverId').disabled = true;
-
-  if (s.config.url) {
-    setTransport('http');
-    document.getElementById('serverUrl').value = s.config.url || '';
-    document.getElementById('serverAuthHeader').value = s.config.auth_header || '';
-    document.getElementById('serverCommand').value = '';
-    document.getElementById('serverArgs').value = '';
-    document.getElementById('serverEnv').value = '';
-  } else {
-    setTransport('stdio');
-    document.getElementById('serverCommand').value = s.config.command || '';
-    document.getElementById('serverArgs').value = (s.config.args || []).join('\n');
-    const envLines = Object.entries(s.config.env || {}).map(([k,v]) => k + '=' + v);
-    document.getElementById('serverEnv').value = envLines.join('\n');
-    document.getElementById('serverUrl').value = '';
-    document.getElementById('serverAuthHeader').value = '';
-  }
-  document.getElementById('serverModal').classList.add('visible');
-}
-
-function closeServerModal() {
-  document.getElementById('serverModal').classList.remove('visible');
-  editingServerId = null;
-}
-
-function applyTemplate() {
-  const name = document.getElementById('templateSelect').value;
-  const t = templates.find(x => x.name === name);
-  if (!t) return;
-  document.getElementById('serverId').value = name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9_-]/g, '');
-  setTransport('stdio');
-  document.getElementById('serverCommand').value = t.config.command;
-  document.getElementById('serverArgs').value = (t.config.args || []).join('\n');
-  const envLines = Object.entries(t.config.env || {}).map(([k,v]) => k + '=' + v);
-  document.getElementById('serverEnv').value = envLines.join('\n');
-}
-
-async function submitServerModal() {
-  const id = document.getElementById('serverId').value.trim();
-  if (!id) { alert('Server ID is required'); return; }
-  if (!/^[a-zA-Z0-9_-]+$/.test(id)) { alert('Server ID may only contain letters, numbers, dashes and underscores'); return; }
-
-  let config;
-  if (currentTransport === 'stdio') {
-    const command = document.getElementById('serverCommand').value.trim();
-    if (!command) { alert('Command is required for STDIO servers'); return; }
-    const args = document.getElementById('serverArgs').value.split('\n').map(s => s.trim()).filter(Boolean);
-    const envLines = document.getElementById('serverEnv').value.split('\n').map(s => s.trim()).filter(Boolean);
-    const env = {};
-    envLines.forEach(line => {
-      const eq = line.indexOf('=');
-      if (eq > 0) env[line.slice(0, eq).trim()] = line.slice(eq + 1).trim();
-    });
-    config = { command, args, env };
-  } else {
-    const url = document.getElementById('serverUrl').value.trim();
-    if (!url) { alert('URL is required for HTTP servers'); return; }
-    config = { url };
-    const authHeader = document.getElementById('serverAuthHeader').value.trim();
-    if (authHeader) config.auth_header = authHeader;
-  }
-
-  if (editingServerId) {
-    // PUT update
-    await fetch('/api/servers/' + encodeURIComponent(editingServerId), {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ config }),
-    });
-  } else {
-    // POST add
-    await fetch('/api/servers', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id, config }),
-    });
-  }
-  closeServerModal();
-  setTimeout(refreshServers, 200);
-}
-
-function copyUrl(e, url) {
-  e.stopPropagation();
-  navigator.clipboard.writeText(url);
-  const btn = e.target;
-  const orig = btn.textContent;
-  btn.textContent = 'Copied!';
-  setTimeout(() => { btn.textContent = orig; }, 1500);
-}
-
-function showSetup() {
-  selectedId = null;
-  showingSetup = true;
-  renderSidebar();
-  renderContent();
-}
-
-function renderSetupContent(el) {
-  const url = mcpUrl();
-  el.innerHTML = '<div class="content-header">'
-    + '<div style="display:flex;align-items:center;gap:12px">'
-    + '<h2>MCP Proxy Setup</h2>'
-    + '</div></div>'
-    + '<div class="setup-panel">'
-    + '<div class="setup-section">'
-    + '<div class="setup-section-title">Streamable HTTP Endpoint</div>'
-    + '<div class="setup-code-row">'
-    + '<code class="setup-code">' + escHtml(url) + '</code>'
-    + '<button class="btn" style="padding:4px 10px;font-size:11px;flex-shrink:0" onclick="copyUrl(event, mcpUrl())">Copy</button>'
-    + '</div>'
-    + '<p style="font-size:11px;color:var(--text2);margin-top:2px">All MCP clients connect to this single endpoint. Tools from all running servers are aggregated automatically.</p>'
-    + '</div>'
-    + '<div class="setup-section">'
-    + '<div class="setup-section-title">Claude Code</div>'
-    + '<div class="setup-code-row">'
-    + '<code class="setup-code">' + escHtml('claude mcp add mcpsm --transport http ' + url) + '</code>'
-    + '<button class="btn" style="padding:4px 10px;font-size:11px;flex-shrink:0" onclick="copyUrl(event, \'claude mcp add mcpsm --transport http \' + mcpUrl())">Copy</button>'
-    + '</div>'
-    + '</div>'
-    + '<div class="setup-section">'
-    + '<div class="setup-section-title">Cline</div>'
-    + '<div class="setup-code-row">'
-    + '<code class="setup-code">Type: streamableHttp\nURL:  ' + escHtml(url) + '</code>'
-    + '</div>'
-    + '</div>'
-    + '<div class="setup-section">'
-    + '<div class="setup-section-title">Cursor / Copilot / Other</div>'
-    + '<div class="setup-code-row">'
-    + '<code class="setup-code">URL: ' + escHtml(url) + '</code>'
-    + '<button class="btn" style="padding:4px 10px;font-size:11px;flex-shrink:0" onclick="copyUrl(event, mcpUrl())">Copy</button>'
-    + '</div>'
-    + '</div>'
-    + '<div class="setup-note">'
-    + 'This endpoint implements the MCP Streamable HTTP transport (spec 2025-11-25 features via rmcp SDK, protocol version negotiated as 2025-06-18). Legacy SSE-only clients should also use <code style="background:var(--surface2);padding:1px 4px;border-radius:3px;font-size:11px">/mcp</code> — it handles GET requests with SSE streaming.'
-    + '</div>'
-    + '</div>';
-}
-
-async function clearLogs(id) {
-  logs[id] = [];
+async function apiClearLogs(id) {
+  logs.value = { ...logs.value, [id]: [] };
   await fetch('/api/servers/' + encodeURIComponent(id) + '/logs', { method: 'DELETE' });
-  renderContent();
 }
 
-function escHtml(s) {
-  if (s == null) return '';
-  const d = document.createElement('div');
-  d.textContent = s;
-  return d.innerHTML;
+async function apiRestartAll() {
+  const runningIds = Object.entries(servers.value)
+    .filter(([_, s]) => isRunning(s.status))
+    .map(([id]) => id);
+  await fetch('/api/servers/stop-all', { method: 'POST' });
+  setTimeout(() => {
+    runningIds.forEach(id => {
+      fetch('/api/servers/' + encodeURIComponent(id) + '/start', { method: 'POST' });
+    });
+  }, 2000);
 }
 
-function toggleTheme() {
-  const current = document.documentElement.getAttribute('data-theme') || 'dark';
-  const next = current === 'dark' ? 'light' : 'dark';
-  document.documentElement.setAttribute('data-theme', next);
-  localStorage.setItem('mcpsm-theme', next);
-  updateThemeIcon();
+// ---------------------------------------------------------------------------
+// SSE Connection
+// ---------------------------------------------------------------------------
+function connectSSE() {
+  const es = new EventSource('/api/events');
+  es.onmessage = (e) => {
+    const evt = JSON.parse(e.data);
+    handleSSEvent(evt);
+  };
+  es.onerror = () => {
+    console.warn('SSE disconnected, reconnecting...');
+  };
+  return es;
 }
 
-function updateThemeIcon() {
-  const btn = document.getElementById('themeToggle');
-  if (!btn) return;
-  const theme = document.documentElement.getAttribute('data-theme') || 'dark';
-  btn.innerHTML = '<svg class="icon"><use href="#icon-' + (theme === 'dark' ? 'sun' : 'moon') + '"/></svg>';
-  btn.title = theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme';
+function handleSSEvent(evt) {
+  switch (evt.type) {
+    case 'ServerStatusChanged': {
+      const cur = servers.value;
+      if (cur[evt.id]) {
+        const updated = { ...cur[evt.id], status: evt.status };
+        if (evt.status.type === 'Stopped') {
+          updated.tools = [];
+          updated.peer_info = null;
+          logs.value = { ...logs.value, [evt.id]: [] };
+        }
+        servers.value = { ...cur, [evt.id]: updated };
+      } else {
+        fetchServers();
+      }
+      break;
+    }
+    case 'McpToolsChanged': {
+      const cur = servers.value;
+      if (cur[evt.id]) {
+        servers.value = { ...cur, [evt.id]: { ...cur[evt.id], tools: evt.tools || [] } };
+      }
+      break;
+    }
+    case 'McpServerReady':
+      fetchServers();
+      break;
+    case 'LogLine': {
+      const curLogs = { ...logs.value };
+      let arr = [...(curLogs[evt.id] || []), evt.line];
+      if (arr.length > 200) arr = arr.slice(-200);
+      curLogs[evt.id] = arr;
+      logs.value = curLogs;
+      break;
+    }
+    case 'LogSnapshot':
+      logs.value = { ...logs.value, [evt.id]: evt.lines || [] };
+      break;
+    case 'ConfigLoaded':
+      fetchServers();
+      break;
+    case 'Error':
+      console.error('Backend error:', evt.message);
+      break;
+    case 'Shutdown':
+      window.close();
+      shutdownFlag.value = true;
+      break;
+  }
 }
 
-function handleShutdown() {
-  // Try to close the tab (works if opened via window.open or has no history)
-  window.close();
-  // If window.close() didn't work, show a shutdown overlay
-  const overlay = document.createElement('div');
-  overlay.className = 'shutdown-overlay';
-  overlay.innerHTML = '<div class="shutdown-msg">MCPSM has shut down</div>'
-    + '<div class="shutdown-hint">You can close this tab</div>';
-  document.body.appendChild(overlay);
+// ---------------------------------------------------------------------------
+// SVG Icon Components
+// ---------------------------------------------------------------------------
+function IconPlus() {
+  return html`<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+  </svg>`;
+}
+function IconTrash() {
+  return html`<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
+  </svg>`;
+}
+function IconSquare() {
+  return html`<svg class="icon" viewBox="0 0 24 24" fill="currentColor" stroke="none">
+    <rect x="6" y="6" width="12" height="12" rx="2"/>
+  </svg>`;
+}
+function IconPencil() {
+  return html`<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M17 3a2.83 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/>
+  </svg>`;
+}
+function IconChevronUp() {
+  return html`<svg class="icon" style="width:12px;height:12px;color:var(--text2)" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <polyline points="18 15 12 9 6 15"/>
+  </svg>`;
+}
+function IconChevronDown() {
+  return html`<svg class="icon" style="width:12px;height:12px;color:var(--text2)" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <polyline points="6 9 12 15 18 9"/>
+  </svg>`;
+}
+function IconPlay() {
+  return html`<svg class="icon" viewBox="0 0 24 24" fill="currentColor" stroke="none">
+    <polygon points="6,4 20,12 6,20"/>
+  </svg>`;
+}
+function IconSun() {
+  return html`<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+  </svg>`;
+}
+function IconMoon() {
+  return html`<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+  </svg>`;
+}
+function IconHelp() {
+  return html`<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+  </svg>`;
+}
+function IconRestart() {
+  return html`<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M1 4v6h6"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/>
+  </svg>`;
+}
+function Logo() {
+  return html`<svg width="28" height="28" viewBox="0 0 180 180" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <circle cx="90" cy="90" r="22" stroke="var(--logo-accent)" stroke-width="5"/>
+    <circle cx="90" cy="90" r="13" fill="var(--logo-accent)" opacity="0.35"/>
+    <path d="M90 66L94 76H86Z" fill="var(--logo-accent)"/>
+    <path d="M90 114L86 104H94Z" fill="var(--logo-accent)"/>
+    <path d="M66 90L76 86V94Z" fill="var(--logo-accent)"/>
+    <path d="M114 90L104 94V86Z" fill="var(--logo-accent)"/>
+    <line x1="76" y1="76" x2="52" y2="52" stroke="var(--logo-green)" stroke-width="4" stroke-linecap="round"/>
+    <rect x="28" y="28" width="28" height="28" rx="6" stroke="var(--logo-green)" stroke-width="4"/>
+    <line x1="35" y1="39" x2="49" y2="39" stroke="var(--logo-green)" stroke-width="3" stroke-linecap="round"/>
+    <line x1="103" y1="76" x2="128" y2="52" stroke="var(--logo-blue)" stroke-width="4" stroke-linecap="round"/>
+    <rect x="124" y="28" width="28" height="28" rx="6" stroke="var(--logo-blue)" stroke-width="4"/>
+    <line x1="131" y1="39" x2="145" y2="39" stroke="var(--logo-blue)" stroke-width="3" stroke-linecap="round"/>
+    <line x1="76" y1="104" x2="52" y2="128" stroke="var(--logo-yellow)" stroke-width="4" stroke-linecap="round"/>
+    <rect x="28" y="124" width="28" height="28" rx="6" stroke="var(--logo-yellow)" stroke-width="4"/>
+    <line x1="35" y1="135" x2="49" y2="135" stroke="var(--logo-yellow)" stroke-width="3" stroke-linecap="round"/>
+    <line x1="103" y1="104" x2="128" y2="128" stroke="var(--logo-red)" stroke-width="4" stroke-linecap="round"/>
+    <rect x="124" y="124" width="28" height="28" rx="6" stroke="var(--logo-red)" stroke-width="4"/>
+    <line x1="131" y1="135" x2="145" y2="135" stroke="var(--logo-red)" stroke-width="3" stroke-linecap="round"/>
+  </svg>`;
 }
 
-init();
+// ---------------------------------------------------------------------------
+// Leaf Components
+// ---------------------------------------------------------------------------
+function StatusDot({ status }) {
+  return html`<span class="status-dot ${statusClass(status)}"></span>`;
+}
+
+function StatusBadge({ status }) {
+  return html`<span class="status-badge ${statusClass(status)}">${statusLabel(status)}</span>`;
+}
+
+function TransportBadge({ server }) {
+  if (server.config.command) {
+    return html`<span class="transport-badge stdio">STDIO</span>`;
+  }
+  if (server.config.url) {
+    return html`<span class="transport-badge http">HTTP</span>`;
+  }
+  return null;
+}
+
+function AnnotationBadge({ type }) {
+  const map = {
+    'read-only': 'readonly',
+    'destructive': 'destructive',
+    'idempotent': 'idempotent',
+    'open-world': 'openworld',
+  };
+  return html`<span class="annot-badge ${map[type] || ''}">${type}</span>`;
+}
+
+function ToggleSwitch({ checked, onChange, title, label }) {
+  return html`<label class="toggle-switch" title=${title}>
+    <input type="checkbox" checked=${checked} onChange=${onChange} />
+    <span class="toggle-slider"></span>
+    <span class="toggle-label">${label}</span>
+  </label>`;
+}
+
+function CopyButton({ text }) {
+  const [copied, setCopied] = useState(false);
+  const handleCopy = useCallback((e) => {
+    e.stopPropagation();
+    navigator.clipboard.writeText(text);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+  }, [text]);
+  return html`<button class="btn" style="padding:4px 10px;font-size:11px;flex-shrink:0" onClick=${handleCopy}>
+    ${copied ? 'Copied!' : 'Copy'}
+  </button>`;
+}
+
+function MemBadge() {
+  const md = memoryData.value;
+  if (!md) return null;
+  return html`<span class="mem-badge" title="RAM usage">
+    <span class="label">App</span><span>${formatBytes(md.self.mem || 0)}</span>
+    <span class="mem-sep">|</span>
+    <span class="label">Servers</span><span>${formatBytes(md.servers_total || 0)}</span>
+  </span>`;
+}
+
+function ServerMemBadge({ id }) {
+  const s = servers.value[id];
+  if (!s || !isRunning(s.status)) return null;
+  const mem = getServerMem(id);
+  if (mem == null) return null;
+  return html`<span class="labeled-badge">
+    <span class="label">RAM</span>${formatBytes(mem)}
+  </span>`;
+}
+
+function PidBadge({ status }) {
+  const info = statusPid(status);
+  if (!info) return null;
+  return html`<span class="labeled-badge">
+    ${info.label && html`<span class="label">${info.label}</span>`}${info.value || ''}
+  </span>`;
+}
+
+function PeerBadges({ server }) {
+  const p = server.peer_info;
+  if (!p) return null;
+  return html`
+    <span class="labeled-badge">
+      <span class="label">SERVER</span>${p.name} v${p.version}
+    </span>
+    <span class="labeled-badge">
+      <span class="label">PROTOCOL</span>${p.protocol_version}
+    </span>
+  `;
+}
+
+// ---------------------------------------------------------------------------
+// Header
+// ---------------------------------------------------------------------------
+function ThemeToggle() {
+  const [theme, setTheme] = useState(document.documentElement.getAttribute('data-theme') || 'dark');
+  const toggle = useCallback(() => {
+    const next = theme === 'dark' ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', next);
+    localStorage.setItem('mcpsm-theme', next);
+    setTheme(next);
+  }, [theme]);
+  return html`<button class="icon-btn" onClick=${toggle} title=${theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}>
+    ${theme === 'dark' ? html`<${IconSun} />` : html`<${IconMoon} />`}
+  </button>`;
+}
+
+function goHome() {
+  batch(() => { selectedId.value = null; showingSetup.value = false; });
+}
+
+function Header() {
+  return html`<header>
+    <div class="clickable-brand" onClick=${goHome} title="Back to dashboard">
+      <${Logo} />
+      <h1>MCP Server Manager</h1>
+    </div>
+    <div class="header-actions">
+      <${MemBadge} />
+      ${hasStartable.value && html`
+        <button class="labeled-btn accent" onClick=${apiStartAll} title="Start All Enabled Servers">
+          <${IconPlay} /> Start All
+        </button>
+      `}
+      ${hasRunning.value && html`
+        <button class="labeled-btn warn" onClick=${apiRestartAll} title="Restart All Running Servers">
+          <${IconRestart} /> Restart All
+        </button>
+      `}
+      ${hasRunning.value && html`
+        <button class="labeled-btn danger" onClick=${apiStopAll} title="Stop All Started Servers">
+          <${IconSquare} /> Stop All
+        </button>
+      `}
+      <${ThemeToggle} />
+    </div>
+  </header>`;
+}
+
+// ---------------------------------------------------------------------------
+// Sidebar
+// ---------------------------------------------------------------------------
+function ServerItem({ id, server }) {
+  const active = selectedId.value === id;
+  const cls = statusClass(server.status);
+  const toolCount = (server.tools && server.tools.length) || 0;
+  const handleClick = useCallback(() => {
+    batch(() => {
+      selectedId.value = id;
+      showingSetup.value = false;
+      activeTab.value = 'tools';
+    });
+    apiRequestLogs(id);
+  }, [id]);
+  return html`<div class="server-item${active ? ' active' : ''}${server.disabled ? ' disabled' : ''}" onClick=${handleClick}>
+    <${StatusDot} status=${server.status} />
+    <span class="server-name">${id}</span>
+    ${toolCount > 0 && html`<span class="server-tools-count">${toolCount} tools</span>`}
+  </div>`;
+}
+
+function Sidebar() {
+  const { enabled, disabled } = sortedServerIds.value;
+  const srvs = servers.value;
+  return html`<div class="sidebar">
+    <div class="sidebar-header">
+      <span>Servers</span>
+      <button class="icon-btn accent" onClick=${() => modalState.value = { type: 'add', data: null }} title="Add Server">
+        <${IconPlus} />
+      </button>
+    </div>
+    <div class="server-list">
+      ${enabled.map(id => html`<${ServerItem} key=${id} id=${id} server=${srvs[id]} />`)}
+      ${enabled.length > 0 && disabled.length > 0 && html`<div class="sidebar-sep"></div>`}
+      ${disabled.map(id => html`<${ServerItem} key=${id} id=${id} server=${srvs[id]} />`)}
+    </div>
+  </div>`;
+}
+
+// ---------------------------------------------------------------------------
+// Server Detail Components
+// ---------------------------------------------------------------------------
+function ConfigSection({ server }) {
+  const hasPeer = !!server.peer_info;
+  const envCount = Object.keys(server.config.env || {}).length;
+  return html`<div class="config-details">
+    <div class="config-row">
+      <${TransportBadge} server=${server} />
+      ${server.config.command && html`
+        <code>${server.config.command} ${(server.config.args || []).join(' ')}</code>
+        ${envCount > 0 && html`<span style="font-size:11px">${envCount} env var${envCount > 1 ? 's' : ''}</span>`}
+      `}
+      ${server.config.url && html`
+        <code>${server.config.url}</code>
+        ${server.config.auth_header && html`<span style="font-size:11px">with auth</span>`}
+      `}
+    </div>
+    ${hasPeer && html`
+      <div class="config-sep"></div>
+      ${server.peer_info.title && html`
+        <div class="config-row">
+          <span class="config-label">Title</span>
+          <span style="color:var(--text)">${server.peer_info.title}</span>
+        </div>
+      `}
+      ${server.peer_info.description && html`
+        <div class="config-row">
+          <span class="config-label">About</span>
+          <span style="color:var(--text)">${server.peer_info.description}</span>
+        </div>
+      `}
+      ${server.peer_info.instructions && html`
+        <div class="config-row" style="align-items:flex-start">
+          <span class="config-label">Instructions</span>
+          <span class="config-value" style="white-space:pre-wrap">${server.peer_info.instructions}</span>
+        </div>
+      `}
+    `}
+  </div>`;
+}
+
+function ToolItem({ tool }) {
+  if (typeof tool === 'string') {
+    return html`<div class="tool-item"><span class="tool-name">${tool}</span></div>`;
+  }
+  const a = tool.annotations;
+  return html`<div class="tool-item">
+    <div>
+      <span class="tool-name">${tool.name}</span>
+      ${tool.title && html`<span class="tool-title">${tool.title}</span>`}
+    </div>
+    ${tool.description && html`<div class="tool-desc">${tool.description}</div>`}
+    ${a && html`<div class="tool-annotations">
+      ${a.read_only_hint === true && html`<${AnnotationBadge} type="read-only" />`}
+      ${a.destructive_hint === true && html`<${AnnotationBadge} type="destructive" />`}
+      ${a.idempotent_hint === true && html`<${AnnotationBadge} type="idempotent" />`}
+      ${a.open_world_hint === true && html`<${AnnotationBadge} type="open-world" />`}
+    </div>`}
+  </div>`;
+}
+
+function ToolsPanel({ tools }) {
+  if (!tools || tools.length === 0) {
+    return html`<div class="tab-placeholder">No tools available</div>`;
+  }
+  return html`<div class="tools-panel">
+    ${tools.map(t => html`<${ToolItem} key=${typeof t === 'string' ? t : t.name} tool=${t} />`)}
+  </div>`;
+}
+
+function TabBar({ server }) {
+  const caps = server.peer_info ? server.peer_info.capabilities : null;
+  const tools = server.tools || [];
+  const tabs = [{ key: 'tools', label: 'Tools (' + tools.length + ')' }];
+  if (caps && caps.resources) tabs.push({ key: 'resources', label: 'Resources' });
+  if (caps && caps.prompts) tabs.push({ key: 'prompts', label: 'Prompts' });
+  if (caps && caps.logging) tabs.push({ key: 'logging', label: 'Logging' });
+
+  const current = activeTab.value;
+  if (!tabs.find(t => t.key === current)) activeTab.value = 'tools';
+
+  return html`<div class="tab-bar">
+    ${tabs.map(t => html`
+      <button key=${t.key} class="tab-btn${t.key === activeTab.value ? ' active' : ''}"
+              onClick=${() => activeTab.value = t.key}>${t.label}</button>
+    `)}
+  </div>`;
+}
+
+function TabContent({ server }) {
+  const tab = activeTab.value;
+  if (tab === 'tools') {
+    return html`<div class="tab-content"><${ToolsPanel} tools=${server.tools || []} /></div>`;
+  }
+  return html`<div class="tab-content"><div class="tab-placeholder">Not yet implemented</div></div>`;
+}
+
+function LogPanel({ id }) {
+  const viewerRef = useRef(null);
+  const expanded = logExpanded.value;
+  const lines = (logs.value[id] || []);
+
+  useEffect(() => {
+    if (expanded && viewerRef.current) {
+      viewerRef.current.scrollTop = viewerRef.current.scrollHeight;
+    }
+  }, [expanded, lines.length]);
+
+  return html`
+    <div class="log-header" onClick=${() => logExpanded.value = !logExpanded.value}>
+      <div class="log-header-left">
+        ${expanded ? html`<${IconChevronDown} />` : html`<${IconChevronUp} />`}
+        <span class="log-header-label">Logs</span>
+      </div>
+      <button class="icon-btn danger" style="width:22px;height:22px"
+              onClick=${(e) => { e.stopPropagation(); apiClearLogs(id); }} title="Clear logs">
+        <svg class="icon" style="width:10px;height:10px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
+        </svg>
+      </button>
+    </div>
+    <div class="log-viewer ${expanded ? 'expanded' : 'collapsed'}" ref=${viewerRef}>
+      ${lines.length === 0
+        ? html`<div class="log-line" style="color:var(--text2)">No logs yet</div>`
+        : lines.map((l, i) => html`<div key=${i} class="log-line">${l}</div>`)
+      }
+    </div>
+  `;
+}
+
+function ServerDetailHeader({ id, server }) {
+  const running = isRunning(server.status);
+  const enabled = !server.disabled;
+  return html`<div class="content-header">
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+      <h2>${id}</h2>
+      <${StatusBadge} status=${server.status} />
+      <${PidBadge} status=${server.status} />
+      <${ServerMemBadge} id=${id} />
+      <${PeerBadges} server=${server} />
+    </div>
+    <div class="server-actions">
+      <${ToggleSwitch}
+        checked=${enabled}
+        onChange=${(e) => apiToggleDisabled(id, !e.target.checked)}
+        title=${enabled ? 'Disable server (stops if running)' : 'Enable server'}
+        label=${enabled ? 'Enabled' : 'Disabled'}
+      />
+      ${!running && html`
+        <button class="icon-btn" onClick=${() => modalState.value = { type: 'edit', data: { serverId: id } }} title="Edit">
+          <${IconPencil} />
+        </button>
+      `}
+      ${running
+        ? html`<button class="icon-btn danger" onClick=${() => apiStopServer(id)} title="Stop"><${IconSquare} /></button>`
+        : enabled && html`<button class="icon-btn accent" onClick=${() => apiStartServer(id)} title="Start"><${IconPlay} /></button>`
+      }
+      ${!running && html`
+        <button class="icon-btn danger" onClick=${() => modalState.value = { type: 'confirmDelete', data: { serverId: id } }} title="Delete">
+          <${IconTrash} />
+        </button>
+      `}
+    </div>
+  </div>`;
+}
+
+function ServerDetail({ id, server }) {
+  return html`
+    <${ServerDetailHeader} id=${id} server=${server} />
+    <div class="content-body">
+      <${ConfigSection} server=${server} />
+      <${TabBar} server=${server} />
+      <${TabContent} server=${server} />
+      <${LogPanel} id=${id} />
+    </div>
+  `;
+}
+
+// ---------------------------------------------------------------------------
+// Home Panel (replaces empty state + setup panel)
+// ---------------------------------------------------------------------------
+const AGENT_CONFIGS = [
+  { key: 'claude-desktop', label: 'Claude Desktop',
+    file: '~/Library/Application Support/Claude/claude_desktop_config.json',
+    gen: (url) => JSON.stringify({ mcpServers: { mcpsm: { url } } }, null, 2) },
+  { key: 'claude-code', label: 'Claude Code',
+    file: null,
+    gen: (url) => 'claude mcp add mcpsm --transport http ' + url },
+  { key: 'cline', label: 'Cline',
+    file: '~/.cline/data/settings/cline_mcp_settings.json',
+    gen: (url) => JSON.stringify({ mcpServers: { mcpsm: { type: 'streamableHttp', url } } }, null, 2) },
+  { key: 'copilot', label: 'GitHub Copilot',
+    file: '~/.config/github-copilot/intellij/mcp.json or ~/Library/Application Support/Code/User/mcp.json',
+    gen: (url) => JSON.stringify({ servers: { mcpsm: { type: 'http', url } } }, null, 2) },
+  { key: 'cursor', label: 'Cursor',
+    file: '~/.cursor/mcp.json',
+    gen: (url) => JSON.stringify({ mcpServers: { mcpsm: { url } } }, null, 2) },
+  { key: 'gemini', label: 'Gemini CLI',
+    file: '~/.gemini/settings.json',
+    gen: (url) => JSON.stringify({ mcpServers: { mcpsm: { uri: url } } }, null, 2) },
+];
+
+function AgentConfigTabs() {
+  const [tab, setTab] = useState('claude-desktop');
+  const url = mcpUrl();
+  const agent = AGENT_CONFIGS.find(a => a.key === tab);
+  const code = agent ? agent.gen(url) : '';
+  return html`
+    <div class="agent-tabs">
+      ${AGENT_CONFIGS.map(a => html`
+        <button key=${a.key} class="agent-tab${a.key === tab ? ' active' : ''}" onClick=${() => setTab(a.key)}>${a.label}</button>
+      `)}
+    </div>
+    <div class="agent-code-block">
+      <div class="copy-float"><${CopyButton} text=${code} /></div>
+      ${agent && agent.file && html`<span style="color:var(--text2);font-size:11px;display:block">// ${agent.file}\n</span>`}${code}
+    </div>
+  `;
+}
+
+function HomePanel() {
+  const srvs = servers.value;
+  const ids = Object.keys(srvs);
+  const activeCount = ids.filter(id => isRunning(srvs[id].status)).length;
+  const inactiveCount = ids.length - activeCount;
+  const stdioCount = ids.filter(id => srvs[id].config && srvs[id].config.command).length;
+  const httpCount = ids.filter(id => srvs[id].config && srvs[id].config.url).length;
+  const totalTools = ids.reduce((sum, id) => sum + ((srvs[id].tools && srvs[id].tools.length) || 0), 0);
+  const url = mcpUrl();
+  const port = window.location.port || '3456';
+
+  return html`<div class="home-panel">
+    <div class="home-stats">
+      <div class="stat-card">
+        <span class="stat-value green">${activeCount}</span>
+        <span class="stat-label">Active</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-value">${inactiveCount}</span>
+        <span class="stat-label">Inactive</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-value">${stdioCount}</span>
+        <span class="stat-label">STDIO</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-value">${httpCount}</span>
+        <span class="stat-label">HTTP</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-value accent">${totalTools}</span>
+        <span class="stat-label">Tools</span>
+      </div>
+    </div>
+
+    <div class="home-section">
+      <div class="home-info">
+        <div style="margin-bottom:6px"><strong>Configuration</strong></div>
+        Config file: <code>~/.config/mcpsm/mcp.json</code><br/>
+        Default port: <code>${port}</code> — change via the <code>"port"</code> key in the config file<br/>
+        MCP endpoint: <code>${url}</code>
+        MCP transport type: <code>http</code>
+      </div>
+    </div>
+
+    <div class="home-section">
+      <div class="home-header-row">
+        <div class="home-section-title">MCP Client Configuration</div>
+      </div>
+      <p style="font-size:11px;color:var(--text2);margin-bottom:10px">
+        Copy the configuration for your MCP client. All clients connect to the single proxy endpoint — tools from all running servers are aggregated automatically.
+      </p>
+      <${AgentConfigTabs} />
+    </div>
+  </div>`;
+}
+
+// ---------------------------------------------------------------------------
+// Content Router
+// ---------------------------------------------------------------------------
+function Content() {
+  const id = selectedId.value;
+  const s = id ? servers.value[id] : null;
+  if (!id || !s) {
+    return html`<div class="content"><${HomePanel} /></div>`;
+  }
+  return html`<div class="content"><${ServerDetail} id=${id} server=${s} /></div>`;
+}
+
+// ---------------------------------------------------------------------------
+// Modals
+// ---------------------------------------------------------------------------
+function ServerModal() {
+  const m = modalState.value;
+  const isEdit = m.type === 'edit';
+  const editId = isEdit ? m.data.serverId : null;
+  const editServer = isEdit && editId ? servers.value[editId] : null;
+
+  const [transport, setTransport] = useState(() => {
+    if (isEdit && editServer && editServer.config.url) return 'http';
+    return 'stdio';
+  });
+  const [serverId, setServerId] = useState(() => isEdit ? editId : '');
+  const [command, setCommand] = useState(() => isEdit && editServer ? (editServer.config.command || '') : '');
+  const [args, setArgs] = useState(() => isEdit && editServer ? (editServer.config.args || []).join('\n') : '');
+  const [env, setEnv] = useState(() => {
+    if (isEdit && editServer) {
+      return Object.entries(editServer.config.env || {}).map(([k,v]) => k + '=' + v).join('\n');
+    }
+    return '';
+  });
+  const [url, setUrl] = useState(() => isEdit && editServer ? (editServer.config.url || '') : '');
+  const [authHeader, setAuthHeader] = useState(() => isEdit && editServer ? (editServer.config.auth_header || '') : '');
+  const [templateVal, setTemplateVal] = useState('');
+
+  const close = useCallback(() => { modalState.value = { type: null, data: null }; }, []);
+
+  const applyTemplate = useCallback((name) => {
+    setTemplateVal(name);
+    const t = templates.value.find(x => x.name === name);
+    if (!t) return;
+    setServerId(name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9_-]/g, ''));
+    setTransport('stdio');
+    setCommand(t.config.command || '');
+    setArgs((t.config.args || []).join('\n'));
+    setEnv(Object.entries(t.config.env || {}).map(([k,v]) => k + '=' + v).join('\n'));
+  }, []);
+
+  const submit = useCallback(async () => {
+    const id = serverId.trim();
+    if (!id) { alert('Server ID is required'); return; }
+    if (!/^[a-zA-Z0-9_-]+$/.test(id)) { alert('Server ID may only contain letters, numbers, dashes and underscores'); return; }
+
+    let config;
+    if (transport === 'stdio') {
+      const cmd = command.trim();
+      if (!cmd) { alert('Command is required for STDIO servers'); return; }
+      const argList = args.split('\n').map(s => s.trim()).filter(Boolean);
+      const envMap = {};
+      env.split('\n').map(s => s.trim()).filter(Boolean).forEach(line => {
+        const eq = line.indexOf('=');
+        if (eq > 0) envMap[line.slice(0, eq).trim()] = line.slice(eq + 1).trim();
+      });
+      config = { command: cmd, args: argList, env: envMap };
+    } else {
+      const u = url.trim();
+      if (!u) { alert('URL is required for HTTP servers'); return; }
+      config = { url: u };
+      const ah = authHeader.trim();
+      if (ah) config.auth_header = ah;
+    }
+
+    if (isEdit) {
+      await apiUpdateServer(editId, config);
+    } else {
+      await apiAddServer(id, config);
+    }
+    close();
+  }, [serverId, transport, command, args, env, url, authHeader, isEdit, editId, close]);
+
+  return html`<div class="modal-overlay" onClick=${(e) => { if (e.target === e.currentTarget) close(); }}>
+    <div class="modal wide">
+      <h3>${isEdit ? 'Edit Server' : 'Add Server'}</h3>
+      ${!isEdit && html`
+        <div class="form-group">
+          <label>Template (optional)</label>
+          <select value=${templateVal} onChange=${(e) => applyTemplate(e.target.value)}>
+            <option value="">Custom...</option>
+            ${templates.value.map(t => html`<option key=${t.name} value=${t.name}>${t.name} — ${t.description}</option>`)}
+          </select>
+        </div>
+      `}
+      <div class="form-group">
+        <label>Server ID</label>
+        <input value=${serverId} onInput=${(e) => setServerId(e.target.value)}
+               placeholder="my-server" pattern="^[a-zA-Z0-9_-]+$"
+               title="Only letters, numbers, dashes and underscores"
+               disabled=${isEdit} />
+      </div>
+      <div class="transport-toggle">
+        <button class=${transport === 'stdio' ? 'active' : ''} onClick=${() => setTransport('stdio')}>STDIO</button>
+        <button class=${transport === 'http' ? 'active' : ''} onClick=${() => setTransport('http')}>HTTP</button>
+      </div>
+      ${transport === 'stdio' ? html`
+        <div>
+          <div class="form-group">
+            <label>Command</label>
+            <input value=${command} onInput=${(e) => setCommand(e.target.value)} placeholder="npx" />
+          </div>
+          <div class="form-group">
+            <label>Arguments (one per line)</label>
+            <textarea value=${args} onInput=${(e) => setArgs(e.target.value)} placeholder=${'-y\n@example/server'}></textarea>
+          </div>
+          <div class="form-group">
+            <label>Environment (KEY=VALUE, one per line)</label>
+            <textarea value=${env} onInput=${(e) => setEnv(e.target.value)} placeholder="FOO=bar"></textarea>
+          </div>
+        </div>
+      ` : html`
+        <div>
+          <div class="form-group">
+            <label>URL</label>
+            <input value=${url} onInput=${(e) => setUrl(e.target.value)} placeholder="http://localhost:8080/mcp" />
+          </div>
+          <div class="form-group">
+            <label>Authorization Header (Bearer token, optional)</label>
+            <input value=${authHeader} onInput=${(e) => setAuthHeader(e.target.value)} placeholder="your-token-here" />
+          </div>
+        </div>
+      `}
+      <div class="modal-actions">
+        <button class="btn" onClick=${close}>Cancel</button>
+        <button class="btn btn-accent" onClick=${submit}>${isEdit ? 'Save' : 'Add'}</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+function ConfirmModal() {
+  const m = modalState.value;
+  const id = m.data ? m.data.serverId : '';
+  const close = useCallback(() => { modalState.value = { type: null, data: null }; }, []);
+  const doDelete = useCallback(async () => {
+    close();
+    await apiDeleteServer(id);
+  }, [id, close]);
+  return html`<div class="modal-overlay confirm-modal" onClick=${(e) => { if (e.target === e.currentTarget) close(); }}>
+    <div class="modal">
+      <h3>Confirm Delete</h3>
+      <div class="confirm-message">Are you sure you want to delete server "${id}"? This action cannot be undone.</div>
+      <div class="modal-actions">
+        <button class="btn" onClick=${close}>Cancel</button>
+        <button class="btn btn-danger" onClick=${doDelete}>Delete</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+// ---------------------------------------------------------------------------
+// Shutdown Overlay
+// ---------------------------------------------------------------------------
+function ShutdownOverlay() {
+  if (!shutdownFlag.value) return null;
+  return html`<div class="shutdown-overlay">
+    <div class="shutdown-msg">MCPSM has shut down</div>
+    <div class="shutdown-hint">You can close this tab</div>
+  </div>`;
+}
+
+// ---------------------------------------------------------------------------
+// App Root
+// ---------------------------------------------------------------------------
+function App() {
+  useEffect(() => {
+    fetchServers();
+    fetchTemplates();
+    pollMemory();
+    const memInterval = setInterval(pollMemory, 5000);
+    const es = connectSSE();
+    return () => {
+      clearInterval(memInterval);
+      es.close();
+    };
+  }, []);
+
+  const m = modalState.value;
+
+  return html`
+    <${Header} />
+    <div class="main">
+      <${Sidebar} />
+      <${Content} />
+    </div>
+    ${m.type === 'add' && html`<${ServerModal} key="add-new" />`}
+    ${m.type === 'edit' && html`<${ServerModal} key=${'edit-' + (m.data && m.data.serverId)} />`}
+    ${m.type === 'confirmDelete' && html`<${ConfirmModal} key=${'del-' + (m.data && m.data.serverId)} />`}
+    <${ShutdownOverlay} />
+  `;
+}
+
+render(html`<${App} />`, document.getElementById('app'));
 </script>
 </body>
 </html>

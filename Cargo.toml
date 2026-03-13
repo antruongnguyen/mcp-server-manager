@@ -1,6 +1,6 @@
 [package]
 name = "mcpsm"
-description = "A Model Context Protocol Server Manager (MCPSM) implementation in Rust."
+description = "A Model Context Protocol Server Manager (MCPSM) implementation in Rust that orchestrates the MCP servers, manages their configurations, and provides a user-friendly interface for monitoring and controlling server instances."
 version = "0.1.0"
 edition = "2024"
 

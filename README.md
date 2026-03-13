@@ -13,7 +13,7 @@ A native macOS application that manages [Model Context Protocol](https://modelco
 - **Server auto-start** — non-disabled servers start automatically on launch
 - **Auto-start toggle** — per-server toggle in dashboard; toggling only saves config (does not start/stop running servers)
 - **Start/Stop All** — header buttons for bulk server control (conditional visibility based on server states)
-- **Configurable port** — set `"port": 8080` in config to change the dashboard/proxy port (default: 17532)
+- **Configurable port** — set `"port": 8080` in config to change the dashboard/proxy port (default: 3456)
 - **Config file watching** — external edits to the config file are detected and applied automatically (smart diff: only affected servers restart)
 - **Status bar app** — macOS status bar with template icon, SF Symbol menu icons, "Open Dashboard", "Edit Config", and "Quit"
 - **Shell environment capture** — captures user's full login shell environment at startup, so child processes find tools installed via nvm, pyenv, Homebrew, etc. (critical for `.app` bundles)
@@ -57,7 +57,7 @@ The config format is:
 
 ```json
 {
-  "port": 17532,
+  "port": 3456,
   "mcpServers": {
     "sequential-thinking": {
       "command": "npx",
@@ -80,7 +80,7 @@ The config format is:
 ```
 
 **Config fields:**
-- `port` (optional) — web dashboard and proxy port (default: `17532`)
+- `port` (optional) — web dashboard and proxy port (default: `3456`)
 - `mcpServers` — map of server ID → config
   - `command` + `args` + `env` — for stdio (child process) servers
   - `url` — for remote HTTP servers
@@ -92,12 +92,12 @@ The config format is:
 
 Once MCPSM is running and servers show **Ready** status in the dashboard, point your MCP client at the proxy endpoint:
 
-**Streamable HTTP**: `http://127.0.0.1:17532/mcp` (or your configured port)
+**Streamable HTTP**: `http://127.0.0.1:3456/mcp` (or your configured port)
 
 ### Claude Code
 
 ```bash
-claude mcp add mcpsm --transport http http://127.0.0.1:17532/mcp
+claude mcp add mcpsm --transport http http://127.0.0.1:3456/mcp
 ```
 
 ### GitHub Copilot (VS Code)
@@ -109,7 +109,7 @@ Create or edit `.vscode/mcp.json` in your workspace (or open **MCP: Open User Co
   "servers": {
     "mcpsm": {
       "type": "http",
-      "url": "http://127.0.0.1:17532/mcp"
+      "url": "http://127.0.0.1:3456/mcp"
     }
   }
 }
@@ -121,7 +121,7 @@ Create or edit `.vscode/mcp.json` in your workspace (or open **MCP: Open User Co
 {
   "mcpServers": {
     "mcpsm": {
-      "url": "http://127.0.0.1:17532/mcp",
+      "url": "http://127.0.0.1:3456/mcp",
       "disabled": false
     }
   }
@@ -136,7 +136,7 @@ Add to your Cursor MCP settings (`~/.cursor/mcp.json`):
 {
   "mcpServers": {
     "mcpsm": {
-      "url": "http://127.0.0.1:17532/mcp"
+      "url": "http://127.0.0.1:3456/mcp"
     }
   }
 }
@@ -144,7 +144,7 @@ Add to your Cursor MCP settings (`~/.cursor/mcp.json`):
 
 ### Any MCP Client
 
-Point to `http://127.0.0.1:17532/mcp` — any client supporting [Streamable HTTP transport](https://modelcontextprotocol.io/docs/concepts/transports#streamable-http) will work. The endpoint handles `POST` (JSON-RPC requests), `GET` (SSE notifications), and `DELETE` (session teardown).
+Point to `http://127.0.0.1:3456/mcp` — any client supporting [Streamable HTTP transport](https://modelcontextprotocol.io/docs/concepts/transports#streamable-http) will work. The endpoint handles `POST` (JSON-RPC requests), `GET` (SSE notifications), and `DELETE` (session teardown).
 
 ## Server Lifecycle
 

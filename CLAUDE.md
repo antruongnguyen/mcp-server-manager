@@ -54,7 +54,7 @@ Key color variable groups:
 
 ## MCP Proxy
 
-MCPSM acts as a unified MCP proxy server at `http://127.0.0.1:{port}/mcp` (port configurable, default 17532):
+MCPSM acts as a unified MCP proxy server at `http://127.0.0.1:{port}/mcp` (port configurable, default 3456):
 
 - **Child communication**: rmcp SDK over stdin/stdout (stdio) or StreamableHttpClientTransport (HTTP)
 - **McpClient** (`mcp/client.rs`): type alias for `RunningService<RoleClient, ClientInfo>`, connect_stdio/connect_http wrappers
@@ -67,7 +67,7 @@ MCPSM acts as a unified MCP proxy server at `http://127.0.0.1:{port}/mcp` (port 
 Reads/writes `~/.config/mcpsm/mcp.json` (auto-created on first run). Uses `serde_json::Value` for the outer document to **preserve unknown fields** — only the `mcpServers` and `port` keys are modified. Writes are atomic (temp file + rename).
 
 Config supports:
-- `port` (u16, default 17532) — extracted at startup, persisted if non-default
+- `port` (u16, default 3456) — extracted at startup, persisted if non-default
 - `mcpServers` — map of server configs with `command`/`args`/`env` (stdio) or `url` (HTTP) + optional `disabled` (default false, omitted when false)
 
 Config file watcher (`src/core/watcher.rs`) uses `notify` crate (kqueue on macOS) with 500ms debounce. Smart reload diffs old vs new config: stops removed servers, adds new ones (auto-starts if not disabled), restarts changed ones. Ignores events within 2s of our own saves.
