@@ -1340,7 +1340,10 @@ const AGENT_CONFIGS = [
     gen: (url) => JSON.stringify({ mcpServers: { mcpsm: { url } } }, null, 2) },
   { key: 'gemini', label: 'Gemini CLI',
     file: '~/.gemini/settings.json',
-    gen: (url) => JSON.stringify({ mcpServers: { mcpsm: { uri: url } } }, null, 2) },
+    gen: (url) => JSON.stringify({ mcpServers: { mcpsm: { httpUrl: url } } }, null, 2) },
+  { key: 'opencode', label: 'OpenCode',
+    file: '~/.config/opencode/opencode.json',
+    gen: (url) => JSON.stringify({ mcpServers: { mcpsm: { url: url, type: 'remote', enabled: true, timeout: 30000 } } }, null, 2) },
 ];
 
 function AgentConfigTabs() {
