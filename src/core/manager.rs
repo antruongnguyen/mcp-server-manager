@@ -42,6 +42,9 @@ pub struct ServerManager {
     /// Channel for receiving connection results from async connect tasks.
     connect_result_tx: tokio::sync::mpsc::UnboundedSender<ConnectResult>,
     connect_result_rx: tokio::sync::mpsc::UnboundedReceiver<ConnectResult>,
+    /// Channel for receiving tool refresh requests from MCP `notifications/tools/list_changed`.
+    tool_refresh_tx: tokio::sync::mpsc::UnboundedSender<String>,
+    tool_refresh_rx: tokio::sync::mpsc::UnboundedReceiver<String>,
     /// Watch channel to signal the proxy when tool lists change.
     tool_change_tx: tokio::sync::watch::Sender<()>,
     /// Port the web server is running on (persisted in config saves).
@@ -132,6 +135,7 @@ impl ServerManager {
     ) -> Self {
         let (log_tx, log_rx) = tokio::sync::mpsc::unbounded_channel();
         let (connect_result_tx, connect_result_rx) = tokio::sync::mpsc::unbounded_channel();
+        let (tool_refresh_tx, tool_refresh_rx) = tokio::sync::mpsc::unbounded_channel();
         Self {
             cmd_rx,
             evt_tx,
@@ -142,6 +146,8 @@ impl ServerManager {
             log_rx,
             connect_result_tx,
             connect_result_rx,
+            tool_refresh_tx,
+            tool_refresh_rx,
             tool_change_tx,
             port,
             last_save_instant: std::time::Instant::now()
@@ -175,6 +181,11 @@ impl ServerManager {
                 result = self.connect_result_rx.recv() => {
                     if let Some(result) = result {
                         self.handle_connect_result(result).await;
+                    }
+                }
+                server_id = self.tool_refresh_rx.recv() => {
+                    if let Some(id) = server_id {
+                        self.handle_tool_refresh(&id).await;
                     }
                 }
             }
@@ -693,12 +704,18 @@ impl ServerManager {
         let connect_result_tx = self.connect_result_tx.clone();
         let log_tx = self.log_tx.clone();
         let shell_env = self.shell_env.clone();
+        let tool_refresh_tx = self.tool_refresh_tx.clone();
 
         tokio::spawn(async move {
             let result = async {
-                let conn = client::connect_stdio(&config_clone, &shell_env)
-                    .await
-                    .map_err(|e| format!("Failed to connect: {}", e))?;
+                let conn = client::connect_stdio(
+                    &config_clone,
+                    &shell_env,
+                    &id_owned,
+                    tool_refresh_tx,
+                )
+                .await
+                .map_err(|e| format!("Failed to connect: {}", e))?;
 
                 // Set up stderr log reader
                 if let Some(stderr) = conn.stderr {
@@ -739,12 +756,18 @@ impl ServerManager {
         let auth_header = config.auth_header.clone();
         let id_owned = id.to_string();
         let connect_result_tx = self.connect_result_tx.clone();
+        let tool_refresh_tx = self.tool_refresh_tx.clone();
 
         tokio::spawn(async move {
             let result = async {
-                let mcp_client = client::connect_http(&url, auth_header.as_deref())
-                    .await
-                    .map_err(|e| format!("Failed to connect: {}", e))?;
+                let mcp_client = client::connect_http(
+                    &url,
+                    auth_header.as_deref(),
+                    &id_owned,
+                    tool_refresh_tx,
+                )
+                .await
+                .map_err(|e| format!("Failed to connect: {}", e))?;
 
                 // Get peer server info
                 let peer_info =
@@ -936,6 +959,69 @@ impl ServerManager {
 
         // Single shared-state sync for all Initializing statuses
         self.sync_shared_state().await;
+    }
+
+    /// Handle a `notifications/tools/list_changed` from a child MCP server.
+    /// Re-fetches the tool list and updates shared state + proxy + dashboard.
+    async fn handle_tool_refresh(&mut self, id: &str) {
+        // Only refresh if the server is Ready
+        let is_ready = self
+            .servers
+            .get(id)
+            .is_some_and(|s| matches!(s.status, ServerStatus::Ready { .. }));
+        if !is_ready {
+            return;
+        }
+
+        // Get a clone of the client Arc to avoid holding locks
+        let client = {
+            let clients = self.shared_mcp_clients.read().await;
+            match clients.get(id) {
+                Some(c) => Arc::clone(c),
+                None => return,
+            }
+        };
+
+        self.push_log(
+            id,
+            "[mcpsm] Received tools/list_changed, refreshing tool list...".to_string(),
+        );
+
+        match client::list_tools(&client).await {
+            Ok(tools) => {
+                let tool_infos: Vec<ToolInfo> = tools.iter().map(|t| tool_to_info(t)).collect();
+                let count = tool_infos.len();
+
+                if let Some(server) = self.servers.get_mut(id) {
+                    server.tools = tool_infos.clone();
+                }
+
+                self.sync_shared_state().await;
+                let _ = self.tool_change_tx.send(());
+
+                send(
+                    &self.evt_tx,
+                    BackendEvent::McpToolsChanged {
+                        id: id.to_string(),
+                        tools: tool_infos,
+                    },
+                );
+
+                self.push_log(
+                    id,
+                    format!("[mcpsm] Tool list refreshed: {} tools", count),
+                );
+
+                tracing::info!("[{}] Tool list refreshed: {} tools", id, count);
+            }
+            Err(e) => {
+                tracing::warn!("[{}] Failed to refresh tool list: {}", id, e);
+                self.push_log(
+                    id,
+                    format!("[mcpsm] Failed to refresh tool list: {}", e),
+                );
+            }
+        }
     }
 
     fn handle_request_logs(&self, id: &str) {

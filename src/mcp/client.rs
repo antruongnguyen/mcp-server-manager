@@ -1,15 +1,55 @@
 use std::collections::HashMap;
 use std::process::Stdio;
 
-use rmcp::model::{CallToolRequestParams, CallToolResult, ClientInfo, Implementation, ServerInfo, Tool};
-use rmcp::service::RunningService;
+use rmcp::handler::client::ClientHandler;
+use rmcp::model::{
+    CallToolRequestParams, CallToolResult, ClientInfo, Implementation, ServerInfo, Tool,
+};
+use rmcp::service::{NotificationContext, RunningService};
 use rmcp::{RoleClient, ServiceExt};
 
 use crate::core::server::ServerConfig;
 
-/// A running MCP client service.
-/// We use `ClientInfo` as the handler since it implements `ClientHandler`.
-pub type McpClient = RunningService<RoleClient, ClientInfo>;
+/// Custom MCP client handler that forwards `notifications/tools/list_changed`
+/// from child servers to the manager via a channel.
+pub struct McpsmClientHandler {
+    client_info: ClientInfo,
+    server_id: String,
+    tool_refresh_tx: tokio::sync::mpsc::UnboundedSender<String>,
+}
+
+impl McpsmClientHandler {
+    pub fn new(
+        server_id: String,
+        tool_refresh_tx: tokio::sync::mpsc::UnboundedSender<String>,
+    ) -> Self {
+        Self {
+            client_info: ClientInfo::new(
+                Default::default(),
+                Implementation::new("mcpsm", env!("CARGO_PKG_VERSION")),
+            ),
+            server_id,
+            tool_refresh_tx,
+        }
+    }
+}
+
+impl ClientHandler for McpsmClientHandler {
+    fn get_info(&self) -> ClientInfo {
+        self.client_info.clone()
+    }
+
+    async fn on_tool_list_changed(&self, _context: NotificationContext<RoleClient>) {
+        tracing::info!(
+            "[{}] Received tools/list_changed notification",
+            self.server_id
+        );
+        let _ = self.tool_refresh_tx.send(self.server_id.clone());
+    }
+}
+
+/// A running MCP client service with our custom handler.
+pub type McpClient = RunningService<RoleClient, McpsmClientHandler>;
 
 /// Result of connecting via stdio: the running client + optional child process + stderr.
 pub struct StdioConnection {
@@ -29,6 +69,8 @@ pub struct StdioConnection {
 pub async fn connect_stdio(
     config: &ServerConfig,
     shell_env: &HashMap<String, String>,
+    server_id: &str,
+    tool_refresh_tx: tokio::sync::mpsc::UnboundedSender<String>,
 ) -> anyhow::Result<StdioConnection> {
     let command = config.command.as_deref()
         .ok_or_else(|| anyhow::anyhow!("No command specified for stdio server"))?;
@@ -56,12 +98,9 @@ pub async fn connect_stdio(
 
     // (ChildStdout, ChildStdin) implements IntoTransport<RoleClient, ...>
     // rmcp's serve() performs the MCP initialize handshake automatically
-    let client_info = ClientInfo::new(
-        Default::default(),
-        Implementation::new("mcpsm", env!("CARGO_PKG_VERSION")),
-    );
+    let handler = McpsmClientHandler::new(server_id.to_string(), tool_refresh_tx);
 
-    let client = client_info.serve((stdout, stdin)).await?;
+    let client = handler.serve((stdout, stdin)).await?;
 
     Ok(StdioConnection {
         client,
@@ -71,7 +110,12 @@ pub async fn connect_stdio(
 }
 
 /// Connect to a remote MCP server via Streamable HTTP.
-pub async fn connect_http(url: &str, auth_header: Option<&str>) -> anyhow::Result<McpClient> {
+pub async fn connect_http(
+    url: &str,
+    auth_header: Option<&str>,
+    server_id: &str,
+    tool_refresh_tx: tokio::sync::mpsc::UnboundedSender<String>,
+) -> anyhow::Result<McpClient> {
     use rmcp::transport::streamable_http_client::{
         StreamableHttpClientTransport, StreamableHttpClientTransportConfig,
     };
@@ -84,12 +128,9 @@ pub async fn connect_http(url: &str, auth_header: Option<&str>) -> anyhow::Resul
     };
     let transport = StreamableHttpClientTransport::from_config(config);
 
-    let client_info = ClientInfo::new(
-        Default::default(),
-        Implementation::new("mcpsm", env!("CARGO_PKG_VERSION")),
-    );
+    let handler = McpsmClientHandler::new(server_id.to_string(), tool_refresh_tx);
 
-    let client = client_info.serve(transport).await?;
+    let client = handler.serve(transport).await?;
     Ok(client)
 }
 
