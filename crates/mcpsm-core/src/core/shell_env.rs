@@ -134,6 +134,7 @@ fn build_fallback_env() -> HashMap<String, String> {
     // Build PATH from common dirs + current PATH
     let current_path = std::env::var("PATH").unwrap_or_default();
 
+    #[allow(unused_mut)]
     let mut extra_paths: Vec<&str> = vec!["/usr/local/bin"];
 
     // Homebrew paths are macOS-only
