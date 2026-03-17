@@ -5,23 +5,31 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Build & Test Commands
 
 ```bash
-cargo build              # Debug build
-cargo build --release    # Release build
-cargo run                # Run the app (must be on macOS)
-cargo test               # Run all 9 unit tests
-cargo test config        # Run config tests only
-cargo test log_buffer    # Run log buffer tests only
-cargo test templates     # Run template tests only
-./scripts/build-app.sh   # Build MCPSM.app bundle (release)
+cargo build --workspace      # Debug build (all crates)
+cargo build --release -p mcpsm-cli   # Release CLI binary
+cargo build --release -p mcpsm-gui   # Release GUI binary
+cargo run -p mcpsm-cli       # Run headless CLI daemon
+cargo run -p mcpsm-gui       # Run macOS GUI app
+cargo test --workspace       # Run all 9 unit tests
+cargo test -p mcpsm-core config      # Run config tests only
+cargo test -p mcpsm-core log_buffer  # Run log buffer tests only
+cargo test -p mcpsm-core templates   # Run template tests only
+./scripts/build-app.sh       # Build MCPSM.app bundle (release, uses mcpsm-gui)
 ./scripts/generate-icons.sh  # Regenerate status bar PNGs + .icns from SVGs
 ```
 
 ## Architecture
 
-Native macOS status bar app in Rust. Two-thread design with a channel bridge:
+Cargo workspace with three crates:
+
+- **`mcpsm-core`** (library) — all business logic, shared by both binaries
+- **`mcpsm-cli`** (binary: `mcpsm`) — headless CLI daemon, tokio runtime on main thread
+- **`mcpsm-gui`** (binary: `mcpsm-gui`) — macOS status bar app, two-thread design
+
+Two-thread design (GUI only) with a channel bridge:
 
 - **Main thread**: AppKit status bar (NSStatusItem via objc2)
-- **Background thread**: tokio async runtime (ServerManager + axum web server + MCP proxy)
+- **Background thread**: tokio async runtime via `mcpsm_core::runtime::run_backend()`
 
 Communication:
 - Web/GUI → Backend: `tokio::sync::mpsc::unbounded_channel<AppCommand>`
@@ -31,15 +39,21 @@ Communication:
 - Tool changes: `tokio::sync::watch::channel<()>` signals proxy when tool lists change
 - Config watcher: `notify` crate on a dedicated std::thread, sends `ReloadConfigIfChanged` through cmd channel
 
-The bridge contract lives in `src/bridge/commands.rs` — all interaction goes through `AppCommand` and `BackendEvent` enums.
+The bridge contract lives in `crates/mcpsm-core/src/bridge/commands.rs` — all interaction goes through `AppCommand` and `BackendEvent` enums.
 
 ## Module Layout
 
-- **`src/core/`** — Business logic: config I/O, process spawn/kill, log ring buffer, server manager async loop, config file watcher, shell environment capture
-- **`src/bridge/`** — Channel contract: `AppCommand` + `BackendEvent` enums
-- **`src/gui/`** — macOS status bar (template icon, SF Symbol menu icons, "Open Dashboard" + "Edit Config" + "Quit" with graceful shutdown)
-- **`src/mcp/`** — MCP protocol via rmcp SDK: client wrapper (stdio + HTTP), proxy handler (tool aggregation + routing)
-- **`src/web/`** — axum web server: REST API, SSE, dashboard HTML, MCP endpoint
+**`crates/mcpsm-core/src/`** — shared library:
+- **`runtime.rs`** — `run_backend()` async entry point (creates channels, proxy, manager, web server)
+- **`core/`** — Business logic: config I/O, process spawn/kill, log ring buffer, server manager async loop, config file watcher, shell environment capture
+- **`bridge/`** — Channel contract: `AppCommand` + `BackendEvent` enums
+- **`mcp/`** — MCP protocol via rmcp SDK: client wrapper (stdio + HTTP), proxy handler (tool aggregation + routing)
+- **`web/`** — axum web server: REST API, SSE, dashboard HTML, MCP endpoint
+
+**`crates/mcpsm-cli/src/`** — headless CLI binary (depends on mcpsm-core only)
+
+**`crates/mcpsm-gui/src/`** — macOS GUI binary (depends on mcpsm-core + objc2):
+- **`gui/`** — macOS status bar (template icon, SF Symbol menu icons, "Open Dashboard" + "Edit Config" + "Quit" with graceful shutdown)
 
 ## Dashboard Theme System
 
@@ -70,7 +84,7 @@ Config supports:
 - `port` (u16, default 3456) — extracted at startup, persisted if non-default
 - `mcpServers` — map of server configs with `command`/`args`/`env` (stdio) or `url` (HTTP) + optional `disabled` (default false, omitted when false)
 
-Config file watcher (`src/core/watcher.rs`) uses `notify` crate (kqueue on macOS) with 500ms debounce. Smart reload diffs old vs new config: stops removed servers, adds new ones (auto-starts if not disabled), restarts changed ones. Ignores events within 2s of our own saves.
+Config file watcher (`core/watcher.rs`) uses `notify` crate with 500ms debounce. Smart reload diffs old vs new config: stops removed servers, adds new ones (auto-starts if not disabled), restarts changed ones. Ignores events within 2s of our own saves.
 
 ## Server Disabled Flag
 
@@ -103,7 +117,8 @@ Shell environment is captured once at startup via `core::shell_env::capture_shel
 ## .app Bundle
 
 `Info.plist` at project root with `LSUIElement: true` (no Dock icon). Built via `scripts/build-app.sh`:
-- `MCPSM.app/Contents/MacOS/mcpsm` — release binary
+- Builds the `mcpsm-gui` crate in release mode
+- `MCPSM.app/Contents/MacOS/mcpsm` — release binary (from `target/release/mcpsm-gui`)
 - `MCPSM.app/Contents/Resources/mcpsm.icns` — app icon
 - `MCPSM.app/Contents/Info.plist` — bundle metadata
 

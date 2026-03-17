@@ -26,17 +26,19 @@ A native macOS application that manages [Model Context Protocol](https://modelco
 
 ## Requirements
 
-- macOS (native AppKit status bar via objc2)
 - Rust (edition 2024)
+- macOS (for the GUI binary — the CLI binary is cross-platform)
 - Node.js / `npx` (for running MCP servers that use it)
 
 ## Building
 
 ```bash
-cargo build --release
+cargo build --workspace          # Build all crates (debug)
+cargo build --release -p mcpsm-cli   # Release build — CLI only
+cargo build --release -p mcpsm-gui   # Release build — GUI only
 ```
 
-### Building as .app Bundle
+### Building as .app Bundle (macOS)
 
 ```bash
 ./scripts/build-app.sh
@@ -47,8 +49,16 @@ This creates a proper macOS application bundle with app icon and `LSUIElement` (
 
 ## Running
 
+**Headless CLI** (no GUI, runs on any platform):
+
 ```bash
-cargo run
+cargo run -p mcpsm-cli
+```
+
+**macOS GUI** (status bar app):
+
+```bash
+cargo run -p mcpsm-gui
 ```
 
 On launch, MCPSM reads server configuration from `~/.config/mcpsm/mcp.json` (auto-created on first run). Non-disabled servers start automatically. Servers added through the web dashboard are saved to this file automatically.
@@ -163,6 +173,12 @@ When a server starts, MCPSM:
 
 ## Architecture
 
+MCPSM is organized as a Cargo workspace with three crates:
+
+- **`mcpsm-core`** — shared library with all business logic (config, server manager, MCP proxy, web dashboard)
+- **`mcpsm-cli`** — headless CLI daemon (`mcpsm` binary) — runs the backend on the main thread's tokio runtime
+- **`mcpsm-gui`** — macOS status bar app (`mcpsm-gui` binary) — two-thread design: AppKit on main, tokio on background
+
 ```
 External MCP Client (Claude Code, Cline, etc.)
         │
@@ -196,30 +212,41 @@ External MCP Client (Claude Code, Cline, etc.)
 ## Project Structure
 
 ```
-src/
-├── main.rs                     # Entry point: config read, shell env capture, signal handler, watcher, tokio thread, status bar
-├── core/
-│   ├── config.rs               # Config I/O (~/.config/mcpsm/mcp.json), port extraction
-│   ├── server.rs               # ServerConfig, ServerStatus, ToolInfo, McpPeerInfo types
-│   ├── process.rs              # Child process management (SIGTERM/SIGKILL, stderr reader)
-│   ├── log_buffer.rs           # Ring buffer (200 lines per server)
-│   ├── shell_env.rs            # Shell environment capture ($SHELL -l -c env)
-│   ├── templates.rs            # Built-in server templates
-│   ├── manager.rs              # Async orchestrator: auto-start, config reload, enable/disable
-│   └── watcher.rs              # Config file watcher (notify crate, kqueue on macOS)
-├── bridge/
-│   └── commands.rs             # AppCommand + BackendEvent enums
-├── gui/
-│   └── status_bar.rs           # macOS status bar (template icon, SF Symbols, Open Dashboard, Edit Config, Quit)
-├── mcp/
-│   ├── client.rs               # rmcp SDK McpClient wrapper (stdio + HTTP connect)
-│   └── proxy.rs                # Tool aggregation + request routing (ProxyHandler)
-└── web/
-    ├── state.rs                # Shared AppState
-    ├── server.rs               # Router + web server startup (configurable port)
-    ├── handlers.rs             # REST API handlers (CRUD + disabled toggle + start/stop all)
-    ├── sse.rs                  # Server-Sent Events stream
-    └── dashboard.html          # Web dashboard UI (rich tools, auto-start toggle, start/stop all, themes)
+Cargo.toml                          # Workspace root
+crates/
+├── mcpsm-core/                     # Shared library
+│   └── src/
+│       ├── lib.rs                  # Public module exports
+│       ├── runtime.rs              # run_backend() — shared async entry point
+│       ├── core/
+│       │   ├── config.rs           # Config I/O (~/.config/mcpsm/mcp.json), port extraction
+│       │   ├── server.rs           # ServerConfig, ServerStatus, ToolInfo, McpPeerInfo types
+│       │   ├── process.rs          # Child process management (SIGTERM/SIGKILL, stderr reader)
+│       │   ├── log_buffer.rs       # Ring buffer (200 lines per server)
+│       │   ├── shell_env.rs        # Shell environment capture ($SHELL -l -c env)
+│       │   ├── templates.rs        # Built-in server templates
+│       │   ├── manager.rs          # Async orchestrator: auto-start, config reload, enable/disable
+│       │   └── watcher.rs          # Config file watcher (notify crate)
+│       ├── bridge/
+│       │   └── commands.rs         # AppCommand + BackendEvent enums
+│       ├── mcp/
+│       │   ├── client.rs           # rmcp SDK McpClient wrapper (stdio + HTTP connect)
+│       │   └── proxy.rs            # Tool aggregation + request routing (ProxyHandler)
+│       └── web/
+│           ├── state.rs            # Shared AppState
+│           ├── server.rs           # Router + web server startup (configurable port)
+│           ├── handlers.rs         # REST API handlers (CRUD + disabled toggle + start/stop all)
+│           ├── sse.rs              # Server-Sent Events stream
+│           └── dashboard.html      # Web dashboard UI
+├── mcpsm-cli/                      # Headless CLI daemon
+│   └── src/main.rs                 # Tokio runtime on main thread, Ctrl+C shutdown
+└── mcpsm-gui/                      # macOS status bar app
+    └── src/
+        ├── main.rs                 # Two-thread: AppKit main + tokio background
+        └── gui/
+            └── status_bar.rs       # Status bar (template icon, SF Symbols, menus)
+resources/                          # Status bar PNGs, .icns
+scripts/                            # build-app.sh, generate-icons.sh
 ```
 
 ## Management REST API
