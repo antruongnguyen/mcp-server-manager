@@ -1,0 +1,15 @@
+[package]
+name = "mcpsm-cli"
+description = "Headless CLI daemon for MCPSM"
+version = "0.1.0"
+edition = "2024"
+
+[[bin]]
+name = "mcpsm"
+path = "src/main.rs"
+
+[dependencies]
+mcpsm-core = { path = "../mcpsm-core" }
+tokio = { version = "1", features = ["full"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }

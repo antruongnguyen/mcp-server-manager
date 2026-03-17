@@ -1,0 +1,25 @@
+[package]
+name = "mcpsm-gui"
+description = "macOS status bar GUI for MCPSM"
+version = "0.1.0"
+edition = "2024"
+
+[[bin]]
+name = "mcpsm-gui"
+path = "src/main.rs"
+
+[dependencies]
+mcpsm-core = { path = "../mcpsm-core" }
+tokio = { version = "1", features = ["full"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+objc2 = "0.6"
+objc2-foundation = { version = "0.3", features = [
+    "NSString", "NSObject", "NSGeometry", "NSNotification",
+    "NSThread", "NSTimer", "NSDate", "NSData",
+] }
+objc2-app-kit = { version = "0.3", features = [
+    "NSApplication", "NSMenu", "NSMenuItem", "NSImage",
+    "NSRunningApplication", "NSStatusBar", "NSStatusItem",
+    "NSStatusBarButton", "NSButton", "NSControl", "NSCell",
+] }

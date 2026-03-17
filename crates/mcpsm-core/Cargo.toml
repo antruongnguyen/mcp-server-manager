@@ -1,0 +1,29 @@
+[package]
+name = "mcpsm-core"
+description = "Core library for MCPSM — config, server manager, MCP proxy, and web dashboard"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+tokio = { version = "1", features = ["full"] }
+tokio-stream = { version = "0.1", features = ["sync"] }
+axum = "0.8"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tracing = "0.1"
+dirs = "6"
+libc = "0.2"
+open = "5"
+notify = "7"
+rmcp = { version = "1.1", features = [
+    "client",
+    "server",
+    "transport-child-process",
+    "transport-streamable-http-server",
+    "transport-streamable-http-client-reqwest",
+    "reqwest",
+] }
+anyhow = "1"
+
+[dev-dependencies]
+tempfile = "3"
