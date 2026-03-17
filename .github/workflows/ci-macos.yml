@@ -1,0 +1,96 @@
+name: CI macOS
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    name: macOS ${{ matrix.arch }}
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x86_64
+            runner: macos-13
+            target: x86_64-apple-darwin
+            artifact: mcpsm-macos-x86_64
+          - arch: aarch64
+            runner: macos-14
+            target: aarch64-apple-darwin
+            artifact: mcpsm-macos-aarch64
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Cache cargo registry and target
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ matrix.arch }}-macos-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ matrix.arch }}-macos-cargo-
+
+      - name: Build mcpsm-cli (release)
+        run: cargo build --release -p mcpsm-cli --target ${{ matrix.target }}
+
+      - name: Build mcpsm-gui (release)
+        run: cargo build --release -p mcpsm-gui --target ${{ matrix.target }}
+
+      - name: Run tests
+        run: cargo test -p mcpsm-core -p mcpsm-cli --target ${{ matrix.target }}
+
+      - name: Upload CLI artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: target/${{ matrix.target }}/release/mcpsm
+          if-no-files-found: error
+
+  build-app:
+    name: macOS app bundle (aarch64)
+    runs-on: macos-14
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo registry and target
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: aarch64-macos-app-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            aarch64-macos-app-cargo-
+
+      - name: Build MCPSM.app
+        run: ./scripts/build-app.sh
+
+      - name: Archive MCPSM.app
+        run: ditto -c -k --sequesterRsrc --keepParent target/release/MCPSM.app MCPSM.app.zip
+
+      - name: Upload macOS app archive
+        uses: actions/upload-artifact@v4
+        with:
+          name: mcpsm-macos-arm64-app
+          path: MCPSM.app.zip
+          if-no-files-found: error
