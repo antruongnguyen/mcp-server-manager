@@ -11,20 +11,8 @@ env:
 
 jobs:
   build:
-    name: macOS ${{ matrix.arch }}
-    runs-on: ${{ matrix.runner }}
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - arch: x86_64
-            runner: macos-13
-            target: x86_64-apple-darwin
-            artifact: mcpsm-macos-x86_64
-          - arch: aarch64
-            runner: macos-14
-            target: aarch64-apple-darwin
-            artifact: mcpsm-macos-aarch64
+    name: macOS aarch64
+    runs-on: macos-14
 
     steps:
       - uses: actions/checkout@v4
@@ -32,7 +20,7 @@ jobs:
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
-          targets: ${{ matrix.target }}
+          targets: aarch64-apple-darwin
 
       - name: Cache cargo registry and target
         uses: actions/cache@v4
@@ -41,24 +29,24 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
             target
-          key: ${{ matrix.arch }}-macos-cargo-${{ hashFiles('**/Cargo.lock') }}
+          key: aarch64-macos-cargo-${{ hashFiles('**/Cargo.lock') }}
           restore-keys: |
-            ${{ matrix.arch }}-macos-cargo-
+            aarch64-macos-cargo-
 
       - name: Build mcpsm-cli (release)
-        run: cargo build --release -p mcpsm-cli --target ${{ matrix.target }}
+        run: cargo build --release -p mcpsm-cli --target aarch64-apple-darwin
 
       - name: Build mcpsm-gui (release)
-        run: cargo build --release -p mcpsm-gui --target ${{ matrix.target }}
+        run: cargo build --release -p mcpsm-gui --target aarch64-apple-darwin
 
       - name: Run tests
-        run: cargo test -p mcpsm-core -p mcpsm-cli --target ${{ matrix.target }}
+        run: cargo test -p mcpsm-core -p mcpsm-cli --target aarch64-apple-darwin
 
       - name: Upload CLI artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.artifact }}
-          path: target/${{ matrix.target }}/release/mcpsm
+          name: mcpsm-macos-aarch64
+          path: target/aarch64-apple-darwin/release/mcpsm
           if-no-files-found: error
 
   build-app:

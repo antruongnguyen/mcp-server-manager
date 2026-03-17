@@ -20,10 +20,6 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - artifact_name: mcpsm-macos-x86_64
-            runner: macos-13
-            target: x86_64-apple-darwin
-            output_name: mcpsm-macos-x86_64
           - artifact_name: mcpsm-macos-aarch64
             runner: macos-14
             target: aarch64-apple-darwin
