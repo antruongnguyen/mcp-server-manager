@@ -53,6 +53,8 @@ pub struct ServerManager {
     last_save_instant: std::time::Instant,
     /// Captured shell environment for child process spawning.
     shell_env: Arc<HashMap<String, String>>,
+    /// Periodic health check interval for detecting crashed servers.
+    health_check_interval: tokio::time::Interval,
 }
 
 struct ManagedServer {
@@ -136,6 +138,9 @@ impl ServerManager {
         let (log_tx, log_rx) = tokio::sync::mpsc::unbounded_channel();
         let (connect_result_tx, connect_result_rx) = tokio::sync::mpsc::unbounded_channel();
         let (tool_refresh_tx, tool_refresh_rx) = tokio::sync::mpsc::unbounded_channel();
+        let mut health_check_interval =
+            tokio::time::interval(std::time::Duration::from_secs(30));
+        health_check_interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
         Self {
             cmd_rx,
             evt_tx,
@@ -154,6 +159,7 @@ impl ServerManager {
                 .checked_sub(std::time::Duration::from_secs(10))
                 .unwrap_or_else(std::time::Instant::now),
             shell_env,
+            health_check_interval,
         }
     }
 
@@ -187,6 +193,9 @@ impl ServerManager {
                     if let Some(id) = server_id {
                         self.handle_tool_refresh(&id).await;
                     }
+                }
+                _ = self.health_check_interval.tick() => {
+                    self.run_health_checks().await;
                 }
             }
         }
@@ -959,6 +968,71 @@ impl ServerManager {
 
         // Single shared-state sync for all Initializing statuses
         self.sync_shared_state().await;
+    }
+
+    /// Periodic health check: detect crashed/disconnected MCP servers and attempt auto-restart.
+    async fn run_health_checks(&mut self) {
+        // Collect Ready servers whose MCP client connection has closed
+        let failed_ids: Vec<String> = {
+            let clients = self.shared_mcp_clients.read().await;
+            self.servers
+                .iter()
+                .filter(|(_, s)| matches!(s.status, ServerStatus::Ready { .. }))
+                .filter(|(id, _)| {
+                    clients
+                        .get(id.as_str())
+                        .is_some_and(|c| c.is_closed())
+                })
+                .map(|(id, _)| id.clone())
+                .collect()
+        };
+
+        for id in failed_ids {
+            tracing::warn!("[{}] Health check: connection closed, marking as error", id);
+            self.push_log(
+                &id,
+                "[mcpsm] Health check failed: connection lost".to_string(),
+            );
+
+            // Clean up the dead client
+            self.shared_mcp_clients.write().await.remove(&id);
+            if let Some(server) = self.servers.get_mut(&id) {
+                if let Some(ref mut child) = server.child {
+                    process::stop_server(child).await;
+                }
+                server.child = None;
+                server.tools.clear();
+                server.peer_info = None;
+                server.status = ServerStatus::Error {
+                    message: "Connection lost (detected by health check)".into(),
+                };
+            }
+            let _ = self.tool_change_tx.send(());
+            self.sync_shared_state().await;
+            send(
+                &self.evt_tx,
+                BackendEvent::ServerStatusChanged {
+                    id: id.clone(),
+                    status: ServerStatus::Error {
+                        message: "Connection lost (detected by health check)".into(),
+                    },
+                },
+            );
+
+            // Attempt auto-restart if not disabled
+            let is_disabled = self
+                .servers
+                .get(&id)
+                .is_some_and(|s| s.config.disabled);
+            if !is_disabled {
+                tracing::info!("[{}] Attempting auto-restart after health check failure", id);
+                self.push_log(
+                    &id,
+                    "[mcpsm] Attempting auto-restart...".to_string(),
+                );
+                self.handle_start_server(&id).await;
+            }
+        }
     }
 
     /// Handle a `notifications/tools/list_changed` from a child MCP server.
