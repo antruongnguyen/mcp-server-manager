@@ -44,7 +44,12 @@ pub fn build_router(state: Arc<AppState>, proxy_handler: ProxyHandler) -> Router
         .nest_service("/mcp", mcp_service)
 }
 
-pub async fn serve(state: Arc<AppState>, proxy_handler: ProxyHandler, port: u16) {
+pub async fn serve(
+    state: Arc<AppState>,
+    proxy_handler: ProxyHandler,
+    port: u16,
+    shutdown_rx: tokio::sync::oneshot::Receiver<()>,
+) {
     let app = build_router(state, proxy_handler);
     let addr = format!("127.0.0.1:{}", port);
     let listener = tokio::net::TcpListener::bind(&addr)
@@ -59,5 +64,11 @@ pub async fn serve(state: Arc<AppState>, proxy_handler: ProxyHandler, port: u16)
         let _ = open::that(&url);
     });
 
-    axum::serve(listener, app).await.expect("Web server error");
+    axum::serve(listener, app)
+        .with_graceful_shutdown(async move {
+            let _ = shutdown_rx.await;
+            tracing::info!("Web server received shutdown signal");
+        })
+        .await
+        .expect("Web server error");
 }

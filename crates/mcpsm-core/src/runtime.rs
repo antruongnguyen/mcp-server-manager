@@ -30,6 +30,9 @@ pub async fn run_backend(
     // Tool change watch channel
     let (tool_change_tx, _tool_change_rx) = tokio::sync::watch::channel(());
 
+    // Shutdown signal for the web server (oneshot: fired once when manager exits)
+    let (shutdown_tx, shutdown_rx) = tokio::sync::oneshot::channel::<()>();
+
     // Signal handler for graceful shutdown (Ctrl+C)
     let signal_tx = cmd_tx.clone();
     tokio::spawn(async move {
@@ -50,7 +53,15 @@ pub async fn run_backend(
         shared_servers.clone(),
     );
 
-    // Run the server manager and web server concurrently
+    // Spawn the web server in a background task with graceful shutdown wired in
+    tokio::spawn(crate::web::server::serve(
+        app_state,
+        proxy_handler,
+        port,
+        shutdown_rx,
+    ));
+
+    // Run the server manager (blocks until Shutdown command)
     let mut manager = ServerManager::new(
         cmd_rx,
         evt_tx,
@@ -60,12 +71,9 @@ pub async fn run_backend(
         port,
         shell_env,
     );
-    tokio::select! {
-        _ = manager.run() => {
-            tracing::info!("ServerManager exited");
-        }
-        _ = crate::web::server::serve(app_state, proxy_handler, port) => {
-            tracing::info!("Web server exited");
-        }
-    }
+    manager.run().await;
+    tracing::info!("ServerManager exited");
+
+    // Signal the web server to shut down gracefully
+    let _ = shutdown_tx.send(());
 }
