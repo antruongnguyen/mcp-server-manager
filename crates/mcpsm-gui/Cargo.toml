@@ -1,8 +1,9 @@
 [package]
 name = "mcpsm-gui"
-description = "macOS status bar GUI for MCPSM"
-version = "0.1.0"
-edition = "2024"
+description = "macOS status bar GUI for MCP Server Manager"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
 
 [[bin]]
 name = "mcpsm-gui"

@@ -87,15 +87,8 @@ The config format is:
       "args": ["-y", "@modelcontextprotocol/server-sequential-thinking"],
       "env": {}
     },
-    "memory": {
-      "command": "npx",
-      "args": ["-y", "@modelcontextprotocol/server-memory"],
-      "env": {
-        "MEMORY_FILE_PATH": "/tmp/memory.json"
-      }
-    },
     "remote-server": {
-      "url": "http://example.com:3000/mcp",
+      "url": "https://mcp.context7.com/mcp",
       "disabled": true
     }
   }
@@ -145,6 +138,7 @@ Create or edit `.vscode/mcp.json` in your workspace (or open **MCP: Open User Co
   "mcpServers": {
     "mcpsm": {
       "url": "http://127.0.0.1:3456/mcp",
+      "type": "streamableHttp",
       "disabled": false
     }
   }

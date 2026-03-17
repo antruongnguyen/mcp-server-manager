@@ -26,8 +26,8 @@ jobs:
         uses: actions/cache@v4
         with:
           path: |
-            ~\\.cargo\\registry
-            ~\\.cargo\\git
+            ~/.cargo/registry
+            ~/.cargo/git
             target
           key: windows-x86_64-cargo-${{ hashFiles('**/Cargo.lock') }}
           restore-keys: |
