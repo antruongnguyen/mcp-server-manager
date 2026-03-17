@@ -38,6 +38,19 @@ cargo build --release -p mcpsm-cli   # Release build — CLI only
 cargo build --release -p mcpsm-gui   # Release build — GUI only
 ```
 
+## CI and Releases
+
+- `.github/workflows/ci-linux.yml` — builds and tests `mcpsm-cli` + `mcpsm-core` on Linux (`x86_64`, `aarch64`)
+- `.github/workflows/ci-windows.yml` — builds and tests `mcpsm-cli` + `mcpsm-core` on Windows (`x86_64`)
+- `.github/workflows/release.yml` — on `v*` tags (or manual dispatch), builds release artifacts for Linux, Windows, and `MCPSM.app` for macOS, then publishes them to GitHub Releases
+
+To cut a release, push a semantic tag like `v0.1.0`:
+
+```bash
+git tag v0.1.0
+git push origin v0.1.0
+```
+
 ### Building as .app Bundle (macOS)
 
 ```bash

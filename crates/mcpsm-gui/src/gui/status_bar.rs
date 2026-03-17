@@ -110,9 +110,7 @@ pub fn run_status_bar(mtm: MainThreadMarker) {
     app.setActivationPolicy(NSApplicationActivationPolicy::Accessory);
 
     // Create our helper that handles actions
-    let helper: Retained<DashboardHelper> = unsafe {
-        msg_send![DashboardHelper::alloc(), init]
-    };
+    let helper: Retained<DashboardHelper> = unsafe { msg_send![DashboardHelper::alloc(), init] };
 
     // Create the status bar item
     let status_bar = NSStatusBar::systemStatusBar();
@@ -156,8 +154,8 @@ pub fn run_status_bar(mtm: MainThreadMarker) {
             &open_key,
         )
     };
-    if let Some(img) = sf_symbol("gauge.with.dots.needle.bottom.50percent")
-        .or_else(|| sf_symbol("gauge"))
+    if let Some(img) =
+        sf_symbol("gauge.with.dots.needle.bottom.50percent").or_else(|| sf_symbol("gauge"))
     {
         open_item.setImage(Some(&img));
     }
