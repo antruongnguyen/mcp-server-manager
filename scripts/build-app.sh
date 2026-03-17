@@ -16,15 +16,15 @@ APP_NAME="MCPSM"
 APP_DIR="$PROJECT_ROOT/target/release/$APP_NAME.app"
 CONTENTS="$APP_DIR/Contents"
 
-echo "Building mcpsm in release mode..."
-cargo build --release
+echo "Building mcpsm-gui in release mode..."
+cargo build --release -p mcpsm-gui
 
 echo "Assembling $APP_NAME.app..."
 rm -rf "$APP_DIR"
 mkdir -p "$CONTENTS/MacOS"
 mkdir -p "$CONTENTS/Resources"
 
-cp "$PROJECT_ROOT/target/release/mcpsm" "$CONTENTS/MacOS/mcpsm"
+cp "$PROJECT_ROOT/target/release/mcpsm-gui" "$CONTENTS/MacOS/mcpsm"
 cp "$PROJECT_ROOT/Info.plist"            "$CONTENTS/Info.plist"
 cp "$PROJECT_ROOT/resources/mcpsm.icns"  "$CONTENTS/Resources/mcpsm.icns"
 
