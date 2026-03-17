@@ -183,16 +183,14 @@ impl ServerManager {
 
     async fn auto_load_config(&mut self) {
         self.handle_load_config().await;
-        // Auto-start all non-disabled servers
+        // Auto-start all non-disabled servers concurrently
         let ids: Vec<String> = self
             .servers
             .iter()
             .filter(|(_, s)| !s.config.disabled)
             .map(|(id, _)| id.clone())
             .collect();
-        for id in ids {
-            self.handle_start_server(&id).await;
-        }
+        self.start_servers_batch(&ids).await;
     }
 
     async fn handle_command(&mut self, cmd: AppCommand) -> bool {
@@ -844,9 +842,100 @@ impl ServerManager {
             .filter(|(_, s)| !s.config.disabled && !s.status.is_running())
             .map(|(id, _)| id.clone())
             .collect();
-        for id in ids {
-            self.handle_start_server(&id).await;
+        self.start_servers_batch(&ids).await;
+    }
+
+    /// Start multiple servers concurrently: all connect tasks are spawned in one pass
+    /// with only 2 shared-state syncs total (Starting + Initializing) instead of 2 per server.
+    async fn start_servers_batch(&mut self, ids: &[String]) {
+        if ids.is_empty() {
+            return;
         }
+
+        // Phase 1: Set all to Starting, clear logs/tools, collect configs
+        let mut to_start: Vec<(String, ServerConfig)> = Vec::new();
+        for id in ids {
+            let Some(server) = self.servers.get(id) else {
+                continue;
+            };
+            if server.status.is_running() {
+                continue;
+            }
+
+            let server = self.servers.get_mut(id).unwrap();
+            server.status = ServerStatus::Starting;
+            server.logs.clear();
+            server.tools.clear();
+            server.peer_info = None;
+
+            to_start.push((id.clone(), server.config.clone()));
+
+            send(
+                &self.evt_tx,
+                BackendEvent::ServerStatusChanged {
+                    id: id.clone(),
+                    status: ServerStatus::Starting,
+                },
+            );
+        }
+
+        if to_start.is_empty() {
+            return;
+        }
+
+        // Single shared-state sync for all Starting statuses
+        self.sync_shared_state().await;
+
+        // Phase 2: Spawn all connect tasks concurrently, set Initializing
+        for (id, config) in &to_start {
+            if config.is_stdio() {
+                let cmd_line = format!(
+                    "{} {}",
+                    config.command.as_deref().unwrap_or(""),
+                    config.args.join(" ")
+                );
+                self.push_log(id, format!("[mcpsm] Starting server: {}", cmd_line.trim()));
+                self.spawn_stdio_connect(id, config);
+            } else if config.is_remote() {
+                self.push_log(
+                    id,
+                    format!(
+                        "[mcpsm] Connecting to remote server: {}",
+                        config.url.as_deref().unwrap_or("")
+                    ),
+                );
+                self.spawn_remote_connect(id, config);
+            } else {
+                let server = self.servers.get_mut(id).unwrap();
+                server.status = ServerStatus::Error {
+                    message: "Server config must have either 'command' or 'url'".into(),
+                };
+                send(
+                    &self.evt_tx,
+                    BackendEvent::ServerStatusChanged {
+                        id: id.clone(),
+                        status: ServerStatus::Error {
+                            message: "Server config must have either 'command' or 'url'".into(),
+                        },
+                    },
+                );
+                continue;
+            }
+
+            let server = self.servers.get_mut(id).unwrap();
+            server.status = ServerStatus::Initializing { pid: None };
+
+            send(
+                &self.evt_tx,
+                BackendEvent::ServerStatusChanged {
+                    id: id.clone(),
+                    status: ServerStatus::Initializing { pid: None },
+                },
+            );
+        }
+
+        // Single shared-state sync for all Initializing statuses
+        self.sync_shared_state().await;
     }
 
     fn handle_request_logs(&self, id: &str) {
