@@ -219,7 +219,7 @@
     width: 100%; height: 1px; background: var(--border); margin: 8px 0;
   }
   .transport-badge {
-    font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;
+    font-size: 12px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px;
     padding: 2px 6px; border-radius: 3px;
     background: var(--surface2); color: var(--text2);
   }
@@ -408,6 +408,7 @@
   .stat-value { font-size: 20px; font-weight: 700; color: var(--text); font-variant-numeric: tabular-nums; }
   .stat-value.green { color: var(--green); }
   .stat-value.red { color: var(--red); }
+  .stat-value.blue { color: var(--blue); }
   .stat-value.accent { color: var(--accent); }
   .stat-label { font-size: 10px; color: var(--text2); text-transform: uppercase; letter-spacing: 0.3px; font-weight: 600; }
   .home-section { margin-bottom: 20px; }
@@ -433,7 +434,7 @@
   .agent-tab:hover { color: var(--text); }
   .agent-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
   .agent-code-block {
-    background: var(--bg); border: 1px solid var(--border); border-top: none;
+    background: var(--surface); border: 1px solid var(--border); border-top: none;
     border-radius: 0 0 var(--radius) var(--radius); padding: 14px 16px;
     font-family: "SF Mono", "Menlo", "Consolas", monospace; font-size: 12px;
     line-height: 1.6; color: var(--text); white-space: pre; overflow-x: auto;
@@ -446,6 +447,31 @@
     display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;
   }
   .clickable-brand { cursor: pointer; display: flex; align-items: center; gap: 10px; }
+
+  /* Tooltip popover */
+  .tooltip-wrap { position: relative; display: inline-flex; align-items: center; }
+  .tooltip-text {
+    position: fixed; z-index: 1000;
+    background: var(--surface); color: var(--text2);
+    border: 1px solid var(--border); padding: 4px 10px;
+    border-radius: 6px; font-size: 11px; font-weight: 500;
+    white-space: nowrap; pointer-events: none;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.18);
+    text-transform: none;
+  }
+  .tooltip-text::before {
+    content: ''; position: absolute; left: 50%; transform: translateX(-50%);
+    border: 5px solid transparent;
+  }
+  .tooltip-text[data-tip="bottom"] { transform: translateX(-50%); }
+  .tooltip-text[data-tip="bottom"]::before { bottom: 100%; border-bottom-color: var(--border); }
+  .tooltip-text[data-tip="top"] { transform: translateX(-50%) translateY(-100%); }
+  .tooltip-text[data-tip="top"]::before { top: 100%; border-top-color: var(--border); }
+
+  /* Form inline validation */
+  .form-group input.has-error, .form-group textarea.has-error { border-color: var(--red); }
+  .form-group input.has-error:focus, .form-group textarea.has-error:focus { border-color: var(--red); }
+  .form-error { color: var(--red); font-size: 11px; margin-top: 3px; }
 </style>
 <script>
   // Apply theme before first paint to prevent flash
@@ -538,7 +564,7 @@ function statusLabel(status) {
     case 'Initializing': return 'Initializing';
     case 'Ready': return 'Ready';
     case 'Stopping': return 'Stopping';
-    case 'Error': return 'Error: ' + status.message;
+    case 'Error': return 'Error';
     default: return status.type;
   }
 }
@@ -695,6 +721,9 @@ function handleSSEvent(evt) {
           logs.value = { ...logs.value, [evt.id]: [] };
         }
         servers.value = { ...cur, [evt.id]: updated };
+        if (evt.status.type === 'Error' && selectedId.value === evt.id) {
+          logExpanded.value = true;
+        }
       } else {
         fetchServers();
       }
@@ -867,6 +896,29 @@ function CopyButton({ text }) {
   </button>`;
 }
 
+function Tooltip({ text, children, position }) {
+  const [show, setShow] = useState(false);
+  const [style, setStyle] = useState({});
+  const wrapRef = useRef(null);
+  const pos = position || 'bottom';
+  const handleEnter = useCallback(() => {
+    if (!wrapRef.current) return;
+    const rect = wrapRef.current.getBoundingClientRect();
+    const cx = rect.left + rect.width / 2;
+    setStyle(pos === 'top'
+      ? { top: (rect.top - 8) + 'px', left: cx + 'px' }
+      : { top: (rect.bottom + 8) + 'px', left: cx + 'px' });
+    setShow(true);
+  }, [pos]);
+  const handleLeave = useCallback(() => setShow(false), []);
+  if (!text) return children;
+  return html`<span class="tooltip-wrap" ref=${wrapRef}
+    onMouseEnter=${handleEnter} onMouseLeave=${handleLeave}>
+    ${children}
+    ${show && html`<span class="tooltip-text" data-tip=${pos} style=${style}>${text}</span>`}
+  </span>`;
+}
+
 function MemBadge() {
   const md = memoryData.value;
   if (!md) return null;
@@ -919,9 +971,11 @@ function ThemeToggle() {
     localStorage.setItem('mcpsm-theme', next);
     setTheme(next);
   }, [theme]);
-  return html`<button class="icon-btn" onClick=${toggle} title=${theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}>
-    ${theme === 'dark' ? html`<${IconSun} />` : html`<${IconMoon} />`}
-  </button>`;
+  return html`<${Tooltip} text=${theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}>
+    <button class="icon-btn" onClick=${toggle}>
+      ${theme === 'dark' ? html`<${IconSun} />` : html`<${IconMoon} />`}
+    </button>
+  <//>`;
 }
 
 function goHome() {
@@ -933,23 +987,32 @@ function Header() {
     <div class="clickable-brand" onClick=${goHome} title="Back to dashboard">
       <${Logo} />
       <h1>MCP Server Manager</h1>
+      ${memoryData.value && memoryData.value.version && html`
+        <span style="font-size:11px;color:var(--text2);font-weight:400">v${memoryData.value.version}</span>
+      `}
     </div>
     <div class="header-actions">
       <${MemBadge} />
       ${hasStartable.value && html`
-        <button class="labeled-btn accent" onClick=${apiStartAll} title="Start All Enabled Servers">
-          <${IconPlay} /> Start All
-        </button>
+        <${Tooltip} text="Start All Enabled Servers">
+          <button class="labeled-btn accent" onClick=${apiStartAll}>
+            <${IconPlay} /> Start All
+          </button>
+        <//>
       `}
       ${hasRunning.value && html`
-        <button class="labeled-btn warn" onClick=${apiRestartAll} title="Restart All Running Servers">
-          <${IconRestart} /> Restart All
-        </button>
+        <${Tooltip} text="Restart All Running Servers">
+          <button class="labeled-btn warn" onClick=${apiRestartAll}>
+            <${IconRestart} /> Restart All
+          </button>
+        <//>
       `}
       ${hasRunning.value && html`
-        <button class="labeled-btn danger" onClick=${apiStopAll} title="Stop All Started Servers">
-          <${IconSquare} /> Stop All
-        </button>
+        <${Tooltip} text="Stop All Running Servers">
+          <button class="labeled-btn danger" onClick=${apiStopAll}>
+            <${IconSquare} /> Stop All
+          </button>
+        <//>
       `}
       <${ThemeToggle} />
     </div>
@@ -984,9 +1047,11 @@ function Sidebar() {
   return html`<div class="sidebar">
     <div class="sidebar-header">
       <span>Servers</span>
-      <button class="icon-btn accent" onClick=${() => modalState.value = { type: 'add', data: null }} title="Add Server">
-        <${IconPlus} />
-      </button>
+      <${Tooltip} text="Add Server">
+        <button class="icon-btn accent" onClick=${() => modalState.value = { type: 'add', data: null }}>
+          <${IconPlus} />
+        </button>
+      <//>
     </div>
     <div class="server-list">
       ${enabled.map(id => html`<${ServerItem} key=${id} id=${id} server=${srvs[id]} />`)}
@@ -1111,12 +1176,14 @@ function LogPanel({ id }) {
         ${expanded ? html`<${IconChevronDown} />` : html`<${IconChevronUp} />`}
         <span class="log-header-label">Logs</span>
       </div>
-      <button class="icon-btn danger" style="width:22px;height:22px"
-              onClick=${(e) => { e.stopPropagation(); apiClearLogs(id); }} title="Clear logs">
-        <svg class="icon" style="width:10px;height:10px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
-        </svg>
-      </button>
+      <${Tooltip} text="Clear logs" position="top">
+        <button class="icon-btn danger" style="width:22px;height:22px"
+                onClick=${(e) => { e.stopPropagation(); apiClearLogs(id); }}>
+          <svg class="icon" style="width:10px;height:10px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
+          </svg>
+        </button>
+      <//>
     </div>
     <div class="log-viewer ${expanded ? 'expanded' : 'collapsed'}" ref=${viewerRef}>
       ${lines.length === 0
@@ -1146,18 +1213,22 @@ function ServerDetailHeader({ id, server }) {
         label=${enabled ? 'Enabled' : 'Disabled'}
       />
       ${!running && html`
-        <button class="icon-btn" onClick=${() => modalState.value = { type: 'edit', data: { serverId: id } }} title="Edit">
-          <${IconPencil} />
-        </button>
+        <${Tooltip} text="Edit">
+          <button class="icon-btn" onClick=${() => modalState.value = { type: 'edit', data: { serverId: id } }}>
+            <${IconPencil} />
+          </button>
+        <//>
       `}
       ${running
-        ? html`<button class="icon-btn danger" onClick=${() => apiStopServer(id)} title="Stop"><${IconSquare} /></button>`
-        : enabled && html`<button class="icon-btn accent" onClick=${() => apiStartServer(id)} title="Start"><${IconPlay} /></button>`
+        ? html`<${Tooltip} text="Stop"><button class="icon-btn danger" onClick=${() => apiStopServer(id)}><${IconSquare} /></button><//>`
+        : enabled && html`<${Tooltip} text="Start"><button class="icon-btn accent" onClick=${() => apiStartServer(id)}><${IconPlay} /></button><//>`
       }
       ${!running && html`
-        <button class="icon-btn danger" onClick=${() => modalState.value = { type: 'confirmDelete', data: { serverId: id } }} title="Delete">
-          <${IconTrash} />
-        </button>
+        <${Tooltip} text="Delete">
+          <button class="icon-btn danger" onClick=${() => modalState.value = { type: 'confirmDelete', data: { serverId: id } }}>
+            <${IconTrash} />
+          </button>
+        <//>
       `}
     </div>
   </div>`;
@@ -1239,11 +1310,11 @@ function HomePanel() {
         <span class="stat-label">Inactive</span>
       </div>
       <div class="stat-card">
-        <span class="stat-value">${stdioCount}</span>
+        <span class="stat-value green">${stdioCount}</span>
         <span class="stat-label">STDIO</span>
       </div>
       <div class="stat-card">
-        <span class="stat-value">${httpCount}</span>
+        <span class="stat-value blue">${httpCount}</span>
         <span class="stat-label">HTTP</span>
       </div>
       <div class="stat-card">
@@ -1253,11 +1324,13 @@ function HomePanel() {
     </div>
 
     <div class="home-section">
+      <div class="home-header-row">
+        <div class="home-section-title">App Configuration</div>
+      </div>
       <div class="home-info">
-        <div style="margin-bottom:6px"><strong>Configuration</strong></div>
         Config file: <code>~/.config/mcpsm/mcp.json</code><br/>
         Default port: <code>${port}</code> — change via the <code>"port"</code> key in the config file<br/>
-        MCP endpoint: <code>${url}</code>
+        MCP endpoint: <code>${url}</code><br/>
         MCP transport type: <code>http</code>
       </div>
     </div>
@@ -1311,6 +1384,15 @@ function ServerModal() {
   const [url, setUrl] = useState(() => isEdit && editServer ? (editServer.config.url || '') : '');
   const [authHeader, setAuthHeader] = useState(() => isEdit && editServer ? (editServer.config.auth_header || '') : '');
   const [templateVal, setTemplateVal] = useState('');
+  const [errors, setErrors] = useState({});
+  const clearError = useCallback((field) => {
+    setErrors(prev => {
+      if (!prev[field]) return prev;
+      const next = { ...prev };
+      delete next[field];
+      return next;
+    });
+  }, []);
 
   const close = useCallback(() => { modalState.value = { type: null, data: null }; }, []);
 
@@ -1326,14 +1408,16 @@ function ServerModal() {
   }, []);
 
   const submit = useCallback(async () => {
+    const errs = {};
     const id = serverId.trim();
-    if (!id) { alert('Server ID is required'); return; }
-    if (!/^[a-zA-Z0-9_-]+$/.test(id)) { alert('Server ID may only contain letters, numbers, dashes and underscores'); return; }
+    if (!id) errs.serverId = 'Server ID is required';
+    else if (!/^[a-zA-Z0-9_-]+$/.test(id)) errs.serverId = 'Only letters, numbers, dashes and underscores';
 
     let config;
     if (transport === 'stdio') {
       const cmd = command.trim();
-      if (!cmd) { alert('Command is required for STDIO servers'); return; }
+      if (!cmd) errs.command = 'Command is required';
+      if (Object.keys(errs).length > 0) { setErrors(errs); return; }
       const argList = args.split('\n').map(s => s.trim()).filter(Boolean);
       const envMap = {};
       env.split('\n').map(s => s.trim()).filter(Boolean).forEach(line => {
@@ -1343,12 +1427,15 @@ function ServerModal() {
       config = { command: cmd, args: argList, env: envMap };
     } else {
       const u = url.trim();
-      if (!u) { alert('URL is required for HTTP servers'); return; }
+      if (!u) errs.url = 'URL is required';
+      try { new URL(u); } catch (e) { errs.url = 'Invalid URL'; }
+      if (Object.keys(errs).length > 0) { setErrors(errs); return; }
       config = { url: u };
       const ah = authHeader.trim();
       if (ah) config.auth_header = ah;
     }
 
+    setErrors({});
     if (isEdit) {
       await apiUpdateServer(editId, config);
     } else {
@@ -1371,20 +1458,22 @@ function ServerModal() {
       `}
       <div class="form-group">
         <label>Server ID</label>
-        <input value=${serverId} onInput=${(e) => setServerId(e.target.value)}
-               placeholder="my-server" pattern="^[a-zA-Z0-9_-]+$"
-               title="Only letters, numbers, dashes and underscores"
+        <input type="text" value=${serverId} onInput=${(e) => { setServerId(e.target.value); clearError('serverId'); }}
+               placeholder="my-server" class=${errors.serverId ? 'has-error' : ''}
                disabled=${isEdit} />
+        ${errors.serverId && html`<div class="form-error">${errors.serverId}</div>`}
       </div>
       <div class="transport-toggle">
-        <button class=${transport === 'stdio' ? 'active' : ''} onClick=${() => setTransport('stdio')}>STDIO</button>
-        <button class=${transport === 'http' ? 'active' : ''} onClick=${() => setTransport('http')}>HTTP</button>
+        <button class=${transport === 'stdio' ? 'active' : ''} onClick=${() => { setTransport('stdio'); setErrors({}); }}>STDIO</button>
+        <button class=${transport === 'http' ? 'active' : ''} onClick=${() => { setTransport('http'); setErrors({}); }}>HTTP</button>
       </div>
       ${transport === 'stdio' ? html`
         <div>
           <div class="form-group">
             <label>Command</label>
-            <input value=${command} onInput=${(e) => setCommand(e.target.value)} placeholder="npx" />
+            <input type="text" value=${command} onInput=${(e) => { setCommand(e.target.value); clearError('command'); }}
+                   placeholder="npx" class=${errors.command ? 'has-error' : ''} />
+            ${errors.command && html`<div class="form-error">${errors.command}</div>`}
           </div>
           <div class="form-group">
             <label>Arguments (one per line)</label>
@@ -1399,11 +1488,13 @@ function ServerModal() {
         <div>
           <div class="form-group">
             <label>URL</label>
-            <input value=${url} onInput=${(e) => setUrl(e.target.value)} placeholder="http://localhost:8080/mcp" />
+            <input type="url" value=${url} onInput=${(e) => { setUrl(e.target.value); clearError('url'); }}
+                   placeholder="http://localhost:8080/mcp" class=${errors.url ? 'has-error' : ''} />
+            ${errors.url && html`<div class="form-error">${errors.url}</div>`}
           </div>
           <div class="form-group">
             <label>Authorization Header (Bearer token, optional)</label>
-            <input value=${authHeader} onInput=${(e) => setAuthHeader(e.target.value)} placeholder="your-token-here" />
+            <input type="text" value=${authHeader} onInput=${(e) => setAuthHeader(e.target.value)} placeholder="your-token-here" />
           </div>
         </div>
       `}

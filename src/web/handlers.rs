@@ -216,5 +216,6 @@ pub async fn get_memory(State(state): State<Arc<AppState>>) -> Json<serde_json::
         "self": { "pid": self_pid, "mem": self_mem },
         "servers": server_memory,
         "servers_total": servers_total,
+        "version": env!("CARGO_PKG_VERSION"),
     }))
 }
