@@ -1,9 +1,13 @@
+#[cfg(target_os = "macos")]
 mod gui;
 
+#[cfg(target_os = "macos")]
 use std::sync::Arc;
 
+#[cfg(target_os = "macos")]
 use mcpsm_core::core::{config, shell_env, watcher};
 
+#[cfg(target_os = "macos")]
 fn main() {
     tracing_subscriber::fmt()
         .with_env_filter(
@@ -38,13 +42,26 @@ fn main() {
     // Spawn tokio runtime on a background thread
     std::thread::spawn(move || {
         let rt = tokio::runtime::Runtime::new().expect("Failed to create tokio runtime");
-        rt.block_on(mcpsm_core::runtime::run_backend(port, cmd_rx, cmd_tx, shell_env));
+        rt.block_on(mcpsm_core::runtime::run_backend(
+            port, cmd_rx, cmd_tx, shell_env,
+        ));
         tracing::info!("Backend thread exiting");
     });
 
     // Run the status bar on the main thread (blocks until app quits)
-    let mtm = objc2_foundation::MainThreadMarker::new()
-        .expect("must be called on the main thread");
+    let mtm = objc2_foundation::MainThreadMarker::new().expect("must be called on the main thread");
 
     gui::status_bar::run_status_bar(mtm);
+}
+
+#[cfg(not(target_os = "macos"))]
+fn main() {
+    tracing_subscriber::fmt()
+        .with_env_filter(
+            tracing_subscriber::EnvFilter::from_default_env()
+                .add_directive(tracing::Level::INFO.into()),
+        )
+        .init();
+
+    tracing::warn!("mcpsm-gui is only supported on macOS");
 }

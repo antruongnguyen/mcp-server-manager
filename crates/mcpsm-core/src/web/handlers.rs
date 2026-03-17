@@ -189,6 +189,27 @@ fn get_memory_footprint(pid: u32) -> Option<u64> {
     }
 }
 
+#[cfg(target_os = "linux")]
+fn get_memory_footprint(pid: u32) -> Option<u64> {
+    let status = std::fs::read_to_string(format!("/proc/{pid}/status")).ok()?;
+    let vmrss_line = status.lines().find(|line| line.starts_with("VmRSS:"))?;
+    let kb = vmrss_line
+        .split_whitespace()
+        .nth(1)
+        .and_then(|s| s.parse::<u64>().ok())?;
+    Some(kb * 1024)
+}
+
+#[cfg(target_os = "windows")]
+fn get_memory_footprint(_pid: u32) -> Option<u64> {
+    None
+}
+
+#[cfg(not(any(target_os = "macos", target_os = "linux", target_os = "windows")))]
+fn get_memory_footprint(_pid: u32) -> Option<u64> {
+    None
+}
+
 pub async fn get_memory(State(state): State<Arc<AppState>>) -> Json<serde_json::Value> {
     let self_pid = std::process::id();
     let self_mem = get_memory_footprint(self_pid).unwrap_or(0);
