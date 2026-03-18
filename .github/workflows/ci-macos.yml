@@ -15,7 +15,7 @@ jobs:
     runs-on: macos-14
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
@@ -43,7 +43,7 @@ jobs:
         run: cargo test -p mcpsm-core -p mcpsm-cli --target aarch64-apple-darwin
 
       - name: Upload CLI artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: mcpsm-macos-aarch64
           path: target/aarch64-apple-darwin/release/mcpsm
@@ -54,7 +54,7 @@ jobs:
     runs-on: macos-14
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6.0.2
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
@@ -77,7 +77,7 @@ jobs:
         run: ditto -c -k --sequesterRsrc --keepParent target/release/MCPSM.app MCPSM.app.zip
 
       - name: Upload macOS app archive
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: mcpsm-macos-arm64-app
           path: MCPSM.app.zip

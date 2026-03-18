@@ -38,7 +38,7 @@ jobs:
             output_name: mcpsm-windows-x86_64.exe
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
@@ -58,7 +58,7 @@ jobs:
         run: Copy-Item -Path "target/${{ matrix.target }}/release/mcpsm.exe" -Destination "${{ matrix.output_name }}"
 
       - name: Upload CLI binary
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ${{ matrix.artifact_name }}
           path: ${{ matrix.output_name }}
@@ -69,7 +69,7 @@ jobs:
     runs-on: macos-14
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
@@ -81,7 +81,7 @@ jobs:
         run: ditto -c -k --sequesterRsrc --keepParent target/release/MCPSM.app MCPSM.app.zip
 
       - name: Upload macOS app archive
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: mcpsm-macos-arm64-app
           path: MCPSM.app.zip
