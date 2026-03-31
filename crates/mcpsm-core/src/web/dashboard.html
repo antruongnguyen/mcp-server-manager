@@ -516,6 +516,52 @@
   .form-group input.has-error, .form-group textarea.has-error { border-color: var(--red); }
   .form-group input.has-error:focus, .form-group textarea.has-error:focus { border-color: var(--red); }
   .form-error { color: var(--red); font-size: 11px; margin-top: 3px; }
+
+  /* Extracted utility classes */
+  .text-secondary { font-size: 11px; color: var(--text2); }
+  .label-uppercase {
+    font-size: 10px; font-weight: 600; color: var(--text2);
+    text-transform: uppercase; letter-spacing: 0.5px;
+  }
+  .font-mono { font-family: "SF Mono", "Menlo", "Consolas", monospace; }
+  .text-wrap-all { white-space: pre-wrap; word-break: break-all; }
+  .flex-row { display: flex; align-items: center; gap: 8px; }
+  .flex-row-tight { display: flex; align-items: center; gap: 4px; }
+  .empty-placeholder { text-align: center; padding: 24px; color: var(--text2); }
+
+  /* MCP log row styles */
+  .mcp-log-row {
+    display: flex; gap: 8px; align-items: baseline;
+    white-space: pre-wrap; word-break: break-all; padding: 1px 0;
+  }
+  .mcp-log-timestamp { color: var(--text2); font-size: 11px; flex-shrink: 0; }
+  .mcp-log-level {
+    display: inline-block; padding: 0 5px; border-radius: 3px;
+    font-size: 10px; font-weight: 600; flex-shrink: 0; text-transform: uppercase;
+  }
+  .mcp-log-logger { color: var(--accent); font-size: 11px; flex-shrink: 0; }
+  .mcp-log-message { color: var(--text); opacity: 0.85; }
+  .mcp-log-viewer {
+    flex: 1; overflow-y: auto; padding: 8px 20px;
+    font-family: "SF Mono", "Menlo", "Consolas", monospace;
+    font-size: 12px; line-height: 1.6; background: var(--bg);
+  }
+
+  /* Registry list */
+  .registry-list { display: flex; flex-direction: column; gap: 0; }
+  .registry-item {
+    display: flex; align-items: center; gap: 10px; padding: 8px 0;
+    border-bottom: 1px solid var(--border); font-size: 12px;
+  }
+  .registry-item:last-child { border-bottom: none; }
+  .registry-item a {
+    display: flex; align-items: center; gap: 10px; flex: 1;
+    color: var(--text); text-decoration: none; transition: color 0.15s;
+  }
+  .registry-item a:hover { color: var(--accent); }
+  .registry-name { font-weight: 600; white-space: nowrap; }
+  .registry-desc { color: var(--text2); flex: 1; }
+  .registry-link-icon { color: var(--text2); flex-shrink: 0; }
 </style>
 <script>
   // Apply theme before first paint to prevent flash
@@ -934,6 +980,16 @@ function IconClear() {
     <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
   </svg>`;
 }
+function IconGitHub() {
+  return html`<svg class="icon" viewBox="0 0 24 24" fill="currentColor">
+    <path d="M12 2C6.477 2 2 6.477 2 12c0 4.42 2.865 8.17 6.839 9.49.5.092.682-.217.682-.482 0-.237-.008-.866-.013-1.7-2.782.604-3.369-1.34-3.369-1.34-.454-1.156-1.11-1.463-1.11-1.463-.908-.62.069-.608.069-.608 1.003.07 1.531 1.03 1.531 1.03.892 1.529 2.341 1.087 2.91.831.092-.646.35-1.086.636-1.336-2.22-.253-4.555-1.11-4.555-4.943 0-1.091.39-1.984 1.029-2.683-.103-.253-.446-1.27.098-2.647 0 0 .84-.269 2.75 1.025A9.578 9.578 0 0112 6.836c.85.004 1.705.115 2.504.337 1.909-1.294 2.747-1.025 2.747-1.025.546 1.377.203 2.394.1 2.647.64.699 1.028 1.592 1.028 2.683 0 3.842-2.339 4.687-4.566 4.935.359.309.678.919.678 1.852 0 1.336-.012 2.415-.012 2.743 0 .267.18.578.688.48C19.138 20.167 22 16.418 22 12c0-5.523-4.477-10-10-10z"/>
+  </svg>`;
+}
+function IconExternalLink() {
+  return html`<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>
+  </svg>`;
+}
 function Logo() {
   return html`<svg width="28" height="28" viewBox="0 0 180 180" fill="none" xmlns="http://www.w3.org/2000/svg">
     <circle cx="90" cy="90" r="22" stroke="var(--logo-accent)" stroke-width="5"/>
@@ -988,8 +1044,8 @@ function AnnotationBadge({ type }) {
   return html`<span class="annot-badge ${map[type] || ''}">${type}</span>`;
 }
 
-function ToggleSwitch({ checked, onChange, title, label }) {
-  return html`<label class="toggle-switch" title=${title}>
+function ToggleSwitch({ id, checked, onChange, title, label }) {
+  return html`<label class="toggle-switch" id=${id} title=${title}>
     <input type="checkbox" checked=${checked} onChange=${onChange} />
     <span class="toggle-slider"></span>
     <span class="toggle-label">${label}</span>
@@ -1035,7 +1091,7 @@ function Tooltip({ text, children, position }) {
 function MemBadge() {
   const md = memoryData.value;
   if (!md) return null;
-  return html`<span class="mem-badge" title="RAM usage">
+  return html`<span id="mem-badge" class="mem-badge" title="RAM usage">
     <span class="label">App</span><span>${formatBytes(md.self.mem || 0)}</span>
     <span class="mem-sep">|</span>
     <span class="label">Servers</span><span>${formatBytes(md.servers_total || 0)}</span>
@@ -1085,7 +1141,7 @@ function ThemeToggle() {
     setTheme(next);
   }, [theme]);
   return html`<${Tooltip} text=${theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}>
-    <button class="icon-btn" onClick=${toggle}>
+    <button id="btn-theme-toggle" class="icon-btn" onClick=${toggle}>
       ${theme === 'dark' ? html`<${IconSun} />` : html`<${IconMoon} />`}
     </button>
   <//>`;
@@ -1096,18 +1152,18 @@ function goHome() {
 }
 
 function Header() {
-  return html`<header>
-    <div class="clickable-brand" onClick=${goHome} title="Back to dashboard">
+  return html`<header id="header-main">
+    <div id="header-brand" class="clickable-brand" onClick=${goHome} title="Back to dashboard">
       <${Logo} />
       <h1>MCP Server Manager</h1>
       ${memoryData.value && memoryData.value.version && html`
-        <span style="font-size:11px;color:var(--text2);font-weight:400">v${memoryData.value.version}</span>
+        <span class="text-secondary" style="font-weight:400">v${memoryData.value.version}</span>
       `}
     </div>
     <div class="header-actions">
       <div class="tool-search-wrap">
         <${IconSearch} />
-        <input class="tool-search-input" type="text" placeholder="Search tools, resources & prompts…"
+        <input id="search-input" class="tool-search-input" type="text" placeholder="Search tools, resources & prompts…"
                value=${toolSearch.value}
                onInput=${(e) => toolSearch.value = e.target.value}
                onKeyDown=${(e) => e.key === 'Escape' && (toolSearch.value = '', e.target.blur())} />
@@ -1116,26 +1172,31 @@ function Header() {
       <${MemBadge} />
       ${hasStartable.value && html`
         <${Tooltip} text="Start All Enabled Servers">
-          <button class="labeled-btn accent" onClick=${apiStartAll}>
+          <button id="btn-start-all" class="labeled-btn accent" onClick=${apiStartAll}>
             <${IconPlay} /> Start All
           </button>
         <//>
       `}
       ${hasRunning.value && html`
         <${Tooltip} text="Restart All Running Servers">
-          <button class="labeled-btn warn" onClick=${apiRestartAll}>
+          <button id="btn-restart-all" class="labeled-btn warn" onClick=${apiRestartAll}>
             <${IconRestart} /> Restart All
           </button>
         <//>
       `}
       ${hasRunning.value && html`
         <${Tooltip} text="Stop All Running Servers">
-          <button class="labeled-btn danger" onClick=${apiStopAll}>
+          <button id="btn-stop-all" class="labeled-btn danger" onClick=${apiStopAll}>
             <${IconSquare} /> Stop All
           </button>
         <//>
       `}
       <${ThemeToggle} />
+      <${Tooltip} text="View on GitHub">
+        <a id="btn-github" class="icon-btn" href="https://github.com/antruongnguyen/mcp-server-manager" target="_blank" rel="noopener noreferrer" style="text-decoration:none">
+          <${IconGitHub} />
+        </a>
+      <//>
     </div>
   </header>`;
 }
@@ -1155,7 +1216,7 @@ function ServerItem({ id, server }) {
     });
     apiRequestLogs(id);
   }, [id]);
-  return html`<div class="server-item${active ? ' active' : ''}${server.disabled ? ' disabled' : ''}" onClick=${handleClick}>
+  return html`<div id="server-${id}" class="server-item${active ? ' active' : ''}${server.disabled ? ' disabled' : ''}" onClick=${handleClick}>
     <${StatusDot} status=${server.status} />
     <span class="server-name">${id}</span>
     ${toolCount > 0 && html`<span class="server-tools-count">${toolCount} tools</span>`}
@@ -1165,16 +1226,16 @@ function ServerItem({ id, server }) {
 function Sidebar() {
   const { enabled, disabled } = sortedServerIds.value;
   const srvs = servers.value;
-  return html`<div class="sidebar">
+  return html`<div id="sidebar" class="sidebar">
     <div class="sidebar-header">
       <span>Servers</span>
       <${Tooltip} text="Add Server">
-        <button class="icon-btn accent" onClick=${() => modalState.value = { type: 'add', data: null }}>
+        <button id="btn-add-server" class="icon-btn accent" onClick=${() => modalState.value = { type: 'add', data: null }}>
           <${IconPlus} />
         </button>
       <//>
     </div>
-    <div class="server-list">
+    <div id="server-list" class="server-list">
       ${enabled.map(id => html`<${ServerItem} key=${id} id=${id} server=${srvs[id]} />`)}
       ${enabled.length > 0 && disabled.length > 0 && html`<div class="sidebar-sep"></div>`}
       ${disabled.map(id => html`<${ServerItem} key=${id} id=${id} server=${srvs[id]} />`)}
@@ -1295,7 +1356,7 @@ function ResourcesPanel({ resources, resourceTemplates }) {
   return html`<div class="tools-panel">
     ${hasResources && resources.map(r => html`<${ResourceItem} key=${r.uri} resource=${r} />`)}
     ${hasResources && hasTemplates && html`<div style="border-bottom:1px solid var(--border);margin:8px 0;padding-top:4px">
-      <span style="font-size:10px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:0.5px">Templates</span>
+      <span class="label-uppercase">Templates</span>
     </div>`}
     ${hasTemplates && resourceTemplates.map(t => html`<${ResourceTemplateItem} key=${t.uri_template} template=${t} />`)}
   </div>`;
@@ -1376,7 +1437,7 @@ function LoggingPanel({ id, server }) {
 
   return html`<div style="display:flex;flex-direction:column;height:100%">
     <div style="padding:10px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px;flex-wrap:wrap">
-      <span style="font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:0.5px">Log Level</span>
+      <span class="label-uppercase" style="font-size:11px">Log Level</span>
       <div style="display:flex;gap:0;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden">
         ${LOG_LEVELS.map(level => html`
           <button key=${level} onClick=${() => handleLevelChange(level)}
@@ -1387,20 +1448,20 @@ function LoggingPanel({ id, server }) {
           >${level}</button>
         `)}
       </div>
-      <label style="display:flex;align-items:center;gap:4px;margin-left:auto;font-size:11px;color:var(--text2);cursor:pointer;user-select:none">
+      <label class="flex-row-tight" style="margin-left:auto;font-size:11px;color:var(--text2);cursor:pointer;user-select:none">
         <input type="checkbox" checked=${autoScroll} onChange=${(e) => setAutoScroll(e.target.checked)} style="margin:0" />
         Auto-scroll
       </label>
     </div>
-    <div ref=${viewerRef} style="flex:1;overflow-y:auto;padding:8px 20px;font-family:'SF Mono','Menlo','Consolas',monospace;font-size:12px;line-height:1.6;background:var(--bg)">
+    <div ref=${viewerRef} class="mcp-log-viewer">
       ${messages.length === 0
-        ? html`<div style="text-align:center;padding:24px;color:var(--text2);font-family:inherit;font-size:12px">No MCP log messages yet</div>`
-        : messages.map((m, i) => html`<div key=${i} style="display:flex;gap:8px;align-items:baseline;white-space:pre-wrap;word-break:break-all;padding:1px 0">
-            <span style="color:var(--text2);font-size:11px;flex-shrink:0">${formatTimestamp(m.timestamp)}</span>
-            <span style="display:inline-block;padding:0 5px;border-radius:3px;font-size:10px;font-weight:600;flex-shrink:0;text-transform:uppercase;
-              background:${LOG_LEVEL_BG[m.level] || 'var(--surface2)'};color:${LOG_LEVEL_COLORS[m.level] || 'var(--text2)'}">${m.level}</span>
-            ${m.logger && html`<span style="color:var(--accent);font-size:11px;flex-shrink:0">${m.logger}</span>`}
-            <span style="color:var(--text);opacity:0.85">${formatData(m.data)}</span>
+        ? html`<div class="empty-placeholder" style="font-family:inherit;font-size:12px">No MCP log messages yet</div>`
+        : messages.map((m, i) => html`<div key=${i} class="mcp-log-row">
+            <span class="mcp-log-timestamp">${formatTimestamp(m.timestamp)}</span>
+            <span class="mcp-log-level"
+              style="background:${LOG_LEVEL_BG[m.level] || 'var(--surface2)'};color:${LOG_LEVEL_COLORS[m.level] || 'var(--text2)'}">${m.level}</span>
+            ${m.logger && html`<span class="mcp-log-logger">${m.logger}</span>`}
+            <span class="mcp-log-message">${formatData(m.data)}</span>
           </div>`)
       }
     </div>
@@ -1422,9 +1483,9 @@ function TabBar({ server }) {
   const current = activeTab.value;
   if (!tabs.find(t => t.key === current)) activeTab.value = 'tools';
 
-  return html`<div class="tab-bar">
+  return html`<div id="tab-bar" class="tab-bar">
     ${tabs.map(t => html`
-      <button key=${t.key} class="tab-btn${t.key === activeTab.value ? ' active' : ''}"
+      <button key=${t.key} id="tab-${t.key}" class="tab-btn${t.key === activeTab.value ? ' active' : ''}"
               onClick=${() => activeTab.value = t.key}>${t.label}</button>
     `)}
   </div>`;
@@ -1460,7 +1521,7 @@ function LogPanel({ id }) {
   }, [expanded, lines.length]);
 
   return html`
-    <div class="log-header" onClick=${() => logExpanded.value = !logExpanded.value}>
+    <div id="log-header" class="log-header" onClick=${() => logExpanded.value = !logExpanded.value}>
       <div class="log-header-left">
         ${expanded ? html`<${IconChevronDown} />` : html`<${IconChevronUp} />`}
         <span class="log-header-label">Logs</span>
@@ -1486,9 +1547,9 @@ function LogPanel({ id }) {
 function ServerDetailHeader({ id, server }) {
   const running = isRunning(server.status);
   const enabled = !server.disabled;
-  return html`<div class="content-header">
-    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-      <h2>${id}</h2>
+  return html`<div id="detail-header" class="content-header">
+    <div class="flex-row" style="flex-wrap:wrap">
+      <h2 id="detail-server-name">${id}</h2>
       <${StatusBadge} status=${server.status} />
       <${PidBadge} status=${server.status} />
       <${ServerMemBadge} id=${id} />
@@ -1496,6 +1557,7 @@ function ServerDetailHeader({ id, server }) {
     </div>
     <div class="server-actions">
       <${ToggleSwitch}
+        id="toggle-enable"
         checked=${enabled}
         onChange=${(e) => apiToggleDisabled(id, !e.target.checked)}
         title=${enabled ? 'Disable server (stops if running)' : 'Enable server'}
@@ -1503,18 +1565,18 @@ function ServerDetailHeader({ id, server }) {
       />
       ${!running && html`
         <${Tooltip} text="Edit">
-          <button class="icon-btn" onClick=${() => modalState.value = { type: 'edit', data: { serverId: id } }}>
+          <button id="btn-edit-server" class="icon-btn" onClick=${() => modalState.value = { type: 'edit', data: { serverId: id } }}>
             <${IconPencil} />
           </button>
         <//>
       `}
       ${running
-        ? html`<${Tooltip} text="Stop"><button class="icon-btn danger" onClick=${() => apiStopServer(id)}><${IconSquare} /></button><//>`
-        : enabled && html`<${Tooltip} text="Start"><button class="icon-btn accent" onClick=${() => apiStartServer(id)}><${IconPlay} /></button><//>`
+        ? html`<${Tooltip} text="Stop"><button id="btn-stop-server" class="icon-btn danger" onClick=${() => apiStopServer(id)}><${IconSquare} /></button><//>`
+        : enabled && html`<${Tooltip} text="Start"><button id="btn-start-server" class="icon-btn accent" onClick=${() => apiStartServer(id)}><${IconPlay} /></button><//>`
       }
       ${!running && html`
         <${Tooltip} text="Delete">
-          <button class="icon-btn danger" onClick=${() => modalState.value = { type: 'confirmDelete', data: { serverId: id } }}>
+          <button id="btn-delete-server" class="icon-btn danger" onClick=${() => modalState.value = { type: 'confirmDelete', data: { serverId: id } }}>
             <${IconTrash} />
           </button>
         <//>
@@ -1597,7 +1659,7 @@ function HomePanel() {
   const url = mcpUrl();
   const port = window.location.port || '3456';
 
-  return html`<div class="home-panel">
+  return html`<div id="home-panel" class="home-panel">
     <div class="home-stats">
       <div class="stat-card">
         <span class="stat-value green">${activeCount}</span>
@@ -1629,7 +1691,7 @@ function HomePanel() {
       </div>
     </div>
 
-    <div class="home-section">
+    <div id="home-config" class="home-section">
       <div class="home-header-row">
         <div class="home-section-title">App Configuration</div>
       </div>
@@ -1641,14 +1703,73 @@ function HomePanel() {
       </div>
     </div>
 
-    <div class="home-section">
+    <div id="home-client-config" class="home-section">
       <div class="home-header-row">
         <div class="home-section-title">MCP Client Configuration</div>
       </div>
-      <p style="font-size:11px;color:var(--text2);margin-bottom:10px">
+      <p class="text-secondary" style="margin-bottom:10px">
         Copy the configuration for your MCP client. All clients connect to the single proxy endpoint — tools from all running servers are aggregated automatically.
       </p>
       <${AgentConfigTabs} />
+    </div>
+
+    <div id="home-registries" class="home-section">
+      <div class="home-header-row">
+        <div class="home-section-title">Discover MCP Servers</div>
+      </div>
+      <div class="home-info">
+        <div class="registry-list">
+          <div class="registry-item">
+            <a href="https://mcpmarket.com" target="_blank" rel="noopener noreferrer">
+              <span class="registry-name">MCP Market</span>
+              <span class="registry-desc">Curated marketplace for discovering MCP servers</span>
+              <${IconExternalLink} />
+            </a>
+          </div>
+          <div class="registry-item">
+            <a href="https://mcpservers.org" target="_blank" rel="noopener noreferrer">
+              <span class="registry-name">MCP Servers</span>
+              <span class="registry-desc">Community directory of MCP servers</span>
+              <${IconExternalLink} />
+            </a>
+          </div>
+          <div class="registry-item">
+            <a href="https://github.com/modelcontextprotocol/servers" target="_blank" rel="noopener noreferrer">
+              <span class="registry-name">Official MCP Registry</span>
+              <span class="registry-desc">Official reference servers maintained by the MCP project</span>
+              <${IconExternalLink} />
+            </a>
+          </div>
+          <div class="registry-item">
+            <a href="https://mcp.so" target="_blank" rel="noopener noreferrer">
+              <span class="registry-name">MCP.so</span>
+              <span class="registry-desc">Usage-metrics-driven directory with call-volume rankings</span>
+              <${IconExternalLink} />
+            </a>
+          </div>
+          <div class="registry-item">
+            <a href="https://glama.ai/mcp/servers" target="_blank" rel="noopener noreferrer">
+              <span class="registry-name">Glama MCP Registry</span>
+              <span class="registry-desc">Production-ready servers with quality curation</span>
+              <${IconExternalLink} />
+            </a>
+          </div>
+          <div class="registry-item">
+            <a href="https://opentools.com" target="_blank" rel="noopener noreferrer">
+              <span class="registry-name">OpenTools</span>
+              <span class="registry-desc">Task- and product-oriented MCP server discovery</span>
+              <${IconExternalLink} />
+            </a>
+          </div>
+          <div class="registry-item">
+            <a href="https://mcp-get.com" target="_blank" rel="noopener noreferrer">
+              <span class="registry-name">MCP-Get</span>
+              <span class="registry-desc">Real-time monitoring and uptime-driven MCP server discovery</span>
+              <${IconExternalLink} />
+            </a>
+          </div>
+        </div>
+      </div>
     </div>
   </div>`;
 }
@@ -1762,9 +1883,9 @@ function Content() {
   const id = selectedId.value;
   const s = id ? servers.value[id] : null;
   if (!id || !s) {
-    return html`<div class="content"><${HomePanel} /></div>`;
+    return html`<div id="content-main" class="content"><${HomePanel} /></div>`;
   }
-  return html`<div class="content"><${ServerDetail} id=${id} server=${s} /></div>`;
+  return html`<div id="content-main" class="content"><${ServerDetail} id=${id} server=${s} /></div>`;
 }
 
 // ---------------------------------------------------------------------------
@@ -1864,7 +1985,7 @@ function ServerModal() {
     close();
   }, [serverId, transport, command, args, env, url, authHeader, isEdit, editId, close]);
 
-  return html`<div class="modal-overlay" onClick=${(e) => { if (e.target === e.currentTarget) close(); }}>
+  return html`<div id="modal-add-server" class="modal-overlay" onClick=${(e) => { if (e.target === e.currentTarget) close(); }}>
     <div class="modal wide">
       <h3>${isEdit ? 'Edit Server' : 'Add Server'}</h3>
       ${!isEdit && html`
@@ -1934,7 +2055,7 @@ function ConfirmModal() {
     close();
     await apiDeleteServer(id);
   }, [id, close]);
-  return html`<div class="modal-overlay confirm-modal" onClick=${(e) => { if (e.target === e.currentTarget) close(); }}>
+  return html`<div id="modal-confirm-delete" class="modal-overlay confirm-modal" onClick=${(e) => { if (e.target === e.currentTarget) close(); }}>
     <div class="modal">
       <h3>Confirm Delete</h3>
       <div class="confirm-message">Are you sure you want to delete server "${id}"? This action cannot be undone.</div>
