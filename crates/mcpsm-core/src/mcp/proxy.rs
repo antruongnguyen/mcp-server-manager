@@ -5,7 +5,7 @@ use rmcp::handler::server::ServerHandler;
 use rmcp::model::{
     CallToolRequestParams, CallToolResult, Content, GetPromptRequestParams, GetPromptResult,
     Implementation, ListPromptsResult, ListToolsResult, PaginatedRequestParams, Prompt,
-    ServerCapabilities, ServerInfo, Tool,
+    ServerCapabilities, ServerInfo, SetLevelRequestParams, Tool,
 };
 use rmcp::service::RequestContext;
 use rmcp::{ErrorData as McpError, RoleServer};
@@ -35,12 +35,13 @@ impl ProxyHandler {
 impl ServerHandler for ProxyHandler {
     fn get_info(&self) -> ServerInfo {
         // Capabilities are static at construction time; tools are always enabled.
-        // Prompts are also always advertised — the list_prompts handler returns an
-        // empty list when no child has prompts, which is spec-compliant.
+        // Prompts and logging are also always advertised — the handlers return
+        // empty results or no-op when no child supports them, which is spec-compliant.
         ServerInfo::new(
             ServerCapabilities::builder()
                 .enable_tools()
                 .enable_prompts()
+                .enable_logging()
                 .build(),
         )
         .with_server_info(Implementation::new("mcpsm", env!("CARGO_PKG_VERSION")))
@@ -243,5 +244,54 @@ impl ServerHandler for ProxyHandler {
                 None,
             )
         })
+    }
+
+    async fn set_level(
+        &self,
+        request: SetLevelRequestParams,
+        _context: RequestContext<RoleServer>,
+    ) -> Result<(), McpError> {
+        let clients = self.clients.read().await;
+        let servers = self.servers.read().await;
+
+        let mut any_success = false;
+        let mut last_error: Option<String> = None;
+
+        for (server_id, client) in clients.iter() {
+            // Only forward to Ready servers that advertise logging capability
+            let has_logging = servers.get(server_id).is_some_and(|s| {
+                matches!(s.status, ServerStatus::Ready { .. })
+                    && s.peer_info
+                        .as_ref()
+                        .is_some_and(|p| p.capabilities.logging)
+            });
+
+            if !has_logging {
+                continue;
+            }
+
+            let params = SetLevelRequestParams::new(request.level.clone());
+            match client.set_level(params).await {
+                Ok(()) => {
+                    any_success = true;
+                }
+                Err(e) => {
+                    tracing::warn!("[{}] Failed to set log level in proxy: {}", server_id, e);
+                    last_error = Some(format!("{}: {}", server_id, e));
+                }
+            }
+        }
+
+        if any_success {
+            Ok(())
+        } else if let Some(err) = last_error {
+            Err(McpError::internal_error(
+                format!("Failed to set log level: {}", err),
+                None,
+            ))
+        } else {
+            // No logging-capable servers found — succeed silently
+            Ok(())
+        }
     }
 }
