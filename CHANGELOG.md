@@ -2,6 +2,18 @@
 
 All notable changes to MCPSM (MCP Server Manager) are documented in this file.
 
+## [1.1.1] - 2026-03-31
+
+### Added
+
+- **HTTP headers support** for remote MCP servers — replaces single `auth_header` with general `headers` map for flexible authentication and custom headers
+- **Dashboard home panel improvements**: Resources and Prompts stat cards, registry links, GitHub repo link, server IDs, and additional CSS classes
+- Reusable StatCard and RegistryItem dashboard components
+
+### Fixed
+
+- MCP server info separator hidden when no peer info is available
+
 ## [1.1.0] - 2026-03-31
 
 ### Added
