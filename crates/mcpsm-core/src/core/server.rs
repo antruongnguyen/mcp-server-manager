@@ -1,8 +1,8 @@
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize};
 use std::collections::HashMap;
 use std::fmt;
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, PartialEq)]
 pub struct ServerConfig {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub command: Option<String>,
@@ -12,10 +12,55 @@ pub struct ServerConfig {
     pub env: HashMap<String, String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub url: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub auth_header: Option<String>,
+    #[serde(default, skip_serializing_if = "HashMap::is_empty")]
+    pub headers: HashMap<String, String>,
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub disabled: bool,
+}
+
+/// Helper for backward-compatible deserialization: accepts both `auth_header` and `headers`.
+impl<'de> Deserialize<'de> for ServerConfig {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        #[derive(Deserialize)]
+        struct Raw {
+            #[serde(default)]
+            command: Option<String>,
+            #[serde(default)]
+            args: Vec<String>,
+            #[serde(default)]
+            env: HashMap<String, String>,
+            #[serde(default)]
+            url: Option<String>,
+            #[serde(default)]
+            auth_header: Option<String>,
+            #[serde(default)]
+            headers: HashMap<String, String>,
+            #[serde(default)]
+            disabled: bool,
+        }
+
+        let raw = Raw::deserialize(deserializer)?;
+        let mut headers = raw.headers;
+
+        // Migrate legacy auth_header into headers if present and Authorization not already set
+        if let Some(token) = raw.auth_header {
+            if !headers.contains_key("Authorization") {
+                headers.insert("Authorization".into(), format!("Bearer {}", token));
+            }
+        }
+
+        Ok(ServerConfig {
+            command: raw.command,
+            args: raw.args,
+            env: raw.env,
+            url: raw.url,
+            headers,
+            disabled: raw.disabled,
+        })
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

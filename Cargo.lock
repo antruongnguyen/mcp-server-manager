@@ -1051,6 +1051,7 @@ dependencies = [
  "anyhow",
  "axum",
  "dirs",
+ "http",
  "libc",
  "notify",
  "open",

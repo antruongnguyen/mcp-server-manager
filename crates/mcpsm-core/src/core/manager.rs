@@ -608,7 +608,7 @@ impl ServerManager {
                     || existing.config.args != new_config.args
                     || existing.config.env != new_config.env
                     || existing.config.url != new_config.url
-                    || existing.config.auth_header != new_config.auth_header;
+                    || existing.config.headers != new_config.headers;
                 let disabled_changed = existing.config.disabled != new_config.disabled;
                 let was_running = existing.status.is_running();
 
@@ -939,7 +939,7 @@ impl ServerManager {
 
     fn spawn_remote_connect(&self, id: &str, config: &ServerConfig) {
         let url = config.url.clone().unwrap();
-        let auth_header = config.auth_header.clone();
+        let headers = config.headers.clone();
         let id_owned = id.to_string();
         let connect_result_tx = self.connect_result_tx.clone();
         let tool_refresh_tx = self.tool_refresh_tx.clone();
@@ -951,7 +951,7 @@ impl ServerManager {
             let result = async {
                 let mcp_client = client::connect_http(
                     &url,
-                    auth_header.as_deref(),
+                    &headers,
                     &id_owned,
                     tool_refresh_tx,
                     resource_refresh_tx,

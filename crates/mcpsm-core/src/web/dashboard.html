@@ -353,7 +353,7 @@
     background: var(--surface); border: 1px solid var(--border);
     border-radius: 12px; padding: 24px; width: 480px; max-width: 90vw;
   }
-  .modal.wide { width: 600px; }
+  .modal.wide { width: 720px; }
   .modal h3 { font-size: 16px; margin-bottom: 16px; }
   .form-group { margin-bottom: 12px; }
   .form-group label { display: block; font-size: 12px; color: var(--text2); margin-bottom: 4px; }
@@ -1278,7 +1278,7 @@ function ConfigSection({ server }) {
       `}
       ${server.config.url && html`
         <code>${server.config.url}</code>
-        ${server.config.auth_header && html`<span style="font-size:11px">with auth</span>`}
+        ${Object.keys(server.config.headers || {}).length > 0 && html`<span style="font-size:11px">${Object.keys(server.config.headers).length} header${Object.keys(server.config.headers).length > 1 ? 's' : ''}</span>`}
       `}
     </div>
     ${hasPeer && html`
@@ -1864,7 +1864,13 @@ function ServerModal() {
     return '';
   });
   const [url, setUrl] = useState(() => isEdit && editServer ? (editServer.config.url || '') : '');
-  const [authHeader, setAuthHeader] = useState(() => isEdit && editServer ? (editServer.config.auth_header || '') : '');
+  const [headers, setHeaders] = useState(() => {
+    if (isEdit && editServer && editServer.config.headers) {
+      const entries = Object.entries(editServer.config.headers);
+      return entries.length > 0 ? entries.map(([k,v]) => ({key: k, value: v})) : [];
+    }
+    return [];
+  });
   const [templateVal, setTemplateVal] = useState('');
   const [errors, setErrors] = useState({});
   const clearError = useCallback((field) => {
@@ -1878,6 +1884,16 @@ function ServerModal() {
 
   const close = useCallback(() => { modalState.value = { type: null, data: null }; }, []);
 
+  const addHeader = useCallback(() => {
+    setHeaders(prev => [...prev, {key: '', value: ''}]);
+  }, []);
+  const removeHeader = useCallback((idx) => {
+    setHeaders(prev => prev.filter((_, i) => i !== idx));
+  }, []);
+  const updateHeader = useCallback((idx, field, val) => {
+    setHeaders(prev => prev.map((h, i) => i === idx ? {...h, [field]: val} : h));
+  }, []);
+
   const applyTemplate = useCallback((name) => {
     setTemplateVal(name);
     const t = templates.value.find(x => x.name === name);
@@ -1886,7 +1902,8 @@ function ServerModal() {
     if (t.config.url) {
       setTransport('http');
       setUrl(t.config.url);
-      setAuthHeader(t.config.auth_header || '');
+      const hdr = t.config.headers || {};
+      setHeaders(Object.entries(hdr).map(([k,v]) => ({key: k, value: v})));
       setCommand('');
       setArgs('');
       setEnv('');
@@ -1896,7 +1913,7 @@ function ServerModal() {
       setArgs((t.config.args || []).join('\n'));
       setEnv(Object.entries(t.config.env || {}).map(([k,v]) => k + '=' + v).join('\n'));
       setUrl('');
-      setAuthHeader('');
+      setHeaders([]);
     }
     setErrors({});
   }, []);
@@ -1925,8 +1942,13 @@ function ServerModal() {
       try { new URL(u); } catch (e) { errs.url = 'Invalid URL'; }
       if (Object.keys(errs).length > 0) { setErrors(errs); return; }
       config = { url: u };
-      const ah = authHeader.trim();
-      if (ah) config.auth_header = ah;
+      const hdrMap = {};
+      headers.forEach(h => {
+        const k = h.key.trim();
+        const v = h.value.trim();
+        if (k && v) hdrMap[k] = v;
+      });
+      if (Object.keys(hdrMap).length > 0) config.headers = hdrMap;
     }
 
     setErrors({});
@@ -1936,7 +1958,7 @@ function ServerModal() {
       await apiAddServer(id, config);
     }
     close();
-  }, [serverId, transport, command, args, env, url, authHeader, isEdit, editId, close]);
+  }, [serverId, transport, command, args, env, url, headers, isEdit, editId, close]);
 
   return html`<div id="modal-add-server" class="modal-overlay" onClick=${(e) => { if (e.target === e.currentTarget) close(); }}>
     <div class="modal wide">
@@ -1987,8 +2009,17 @@ function ServerModal() {
             ${errors.url && html`<div class="form-error">${errors.url}</div>`}
           </div>
           <div class="form-group">
-            <label>Authorization Header (Bearer token, optional)</label>
-            <input type="text" value=${authHeader} onInput=${(e) => setAuthHeader(e.target.value)} placeholder="your-token-here" />
+            <label>HTTP Headers (optional)</label>
+            ${headers.map((h, i) => html`
+              <div key=${i} style="display:flex;gap:6px;margin-bottom:4px;align-items:center">
+                <input type="text" value=${h.key} onInput=${(e) => updateHeader(i, 'key', e.target.value)}
+                       placeholder="Authorization" style="flex:1;min-width:0" />
+                <input type="text" value=${h.value} onInput=${(e) => updateHeader(i, 'value', e.target.value)}
+                       placeholder="Bearer your-token" style="flex:2;min-width:0" />
+                <button class="btn" onClick=${() => removeHeader(i)} style="padding:4px 8px;flex-shrink:0" title="Remove header">✕</button>
+              </div>
+            `)}
+            <button class="btn" onClick=${addHeader} style="margin-top:4px;font-size:12px">+ Add Header</button>
           </div>
         </div>
       `}

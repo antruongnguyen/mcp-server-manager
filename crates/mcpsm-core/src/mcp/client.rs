@@ -156,7 +156,7 @@ pub async fn connect_stdio(
 /// Connect to a remote MCP server via Streamable HTTP.
 pub async fn connect_http(
     url: &str,
-    auth_header: Option<&str>,
+    headers: &HashMap<String, String>,
     server_id: &str,
     tool_refresh_tx: tokio::sync::mpsc::UnboundedSender<String>,
     resource_refresh_tx: tokio::sync::mpsc::UnboundedSender<String>,
@@ -167,12 +167,20 @@ pub async fn connect_http(
         StreamableHttpClientTransport, StreamableHttpClientTransportConfig,
     };
 
-    let config = StreamableHttpClientTransportConfig::with_uri(url);
-    let config = if let Some(ah) = auth_header {
-        config.auth_header(ah)
-    } else {
-        config
-    };
+    let mut config = StreamableHttpClientTransportConfig::with_uri(url);
+    if !headers.is_empty() {
+        use std::str::FromStr;
+        let mut http_headers = HashMap::new();
+        for (k, v) in headers {
+            if let (Ok(name), Ok(val)) = (
+                http::header::HeaderName::from_str(k),
+                http::header::HeaderValue::from_str(v),
+            ) {
+                http_headers.insert(name, val);
+            }
+        }
+        config = config.custom_headers(http_headers);
+    }
     let transport = StreamableHttpClientTransport::from_config(config);
 
     let handler = McpsmClientHandler::new(server_id.to_string(), tool_refresh_tx, resource_refresh_tx, prompt_refresh_tx, logging_message_tx);

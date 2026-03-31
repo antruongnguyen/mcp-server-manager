@@ -176,7 +176,7 @@ mod tests {
                 args: vec!["server.js".into()],
                 env: HashMap::new(),
                 url: None,
-                auth_header: None,
+                headers: HashMap::new(),
                 disabled: false,
             },
         ));
@@ -203,11 +203,70 @@ mod tests {
                 args: vec![],
                 env: HashMap::new(),
                 url: None,
-                auth_header: None,
+                headers: HashMap::new(),
                 disabled: false,
             },
         )];
         save_config_to_path(&path, &servers, &doc, DEFAULT_PORT).unwrap();
         assert!(path.exists());
+    }
+
+    #[test]
+    fn legacy_auth_header_migrates_to_headers() {
+        let json = r#"{
+            "mcpServers": {
+                "remote": {
+                    "url": "http://example.com/mcp",
+                    "auth_header": "my-token"
+                }
+            }
+        }"#;
+        let doc: Value = serde_json::from_str(json).unwrap();
+        let servers = extract_servers(&doc);
+        assert_eq!(servers.len(), 1);
+        let config = &servers[0].1;
+        assert_eq!(config.url.as_deref(), Some("http://example.com/mcp"));
+        assert!(config.headers.contains_key("Authorization"));
+        assert_eq!(config.headers["Authorization"], "Bearer my-token");
+    }
+
+    #[test]
+    fn headers_field_takes_precedence_over_auth_header() {
+        let json = r#"{
+            "mcpServers": {
+                "remote": {
+                    "url": "http://example.com/mcp",
+                    "auth_header": "old-token",
+                    "headers": { "Authorization": "Token custom-value", "X-Api-Key": "key123" }
+                }
+            }
+        }"#;
+        let doc: Value = serde_json::from_str(json).unwrap();
+        let servers = extract_servers(&doc);
+        let config = &servers[0].1;
+        assert_eq!(config.headers["Authorization"], "Token custom-value");
+        assert_eq!(config.headers["X-Api-Key"], "key123");
+    }
+
+    #[test]
+    fn new_headers_roundtrip() {
+        let config = ServerConfig {
+            command: None,
+            args: vec![],
+            env: HashMap::new(),
+            url: Some("http://example.com/mcp".into()),
+            headers: HashMap::from([
+                ("Authorization".into(), "Bearer tok".into()),
+                ("X-Custom".into(), "val".into()),
+            ]),
+            disabled: false,
+        };
+        let json = serde_json::to_string(&config).unwrap();
+        let parsed: ServerConfig = serde_json::from_str(&json).unwrap();
+        assert_eq!(parsed.headers.len(), 2);
+        assert_eq!(parsed.headers["Authorization"], "Bearer tok");
+        assert_eq!(parsed.headers["X-Custom"], "val");
+        // auth_header should NOT appear in serialized output
+        assert!(!json.contains("auth_header"));
     }
 }
