@@ -3,7 +3,8 @@ use std::process::Stdio;
 
 use rmcp::handler::client::ClientHandler;
 use rmcp::model::{
-    CallToolRequestParams, CallToolResult, ClientInfo, Implementation, ServerInfo, Tool,
+    CallToolRequestParams, CallToolResult, ClientInfo, Implementation, ReadResourceRequestParams,
+    ReadResourceResult, Resource, ResourceTemplate, ServerInfo, Tool,
 };
 use rmcp::service::{NotificationContext, RunningService};
 use rmcp::{RoleClient, ServiceExt};
@@ -16,12 +17,14 @@ pub struct McpsmClientHandler {
     client_info: ClientInfo,
     server_id: String,
     tool_refresh_tx: tokio::sync::mpsc::UnboundedSender<String>,
+    resource_refresh_tx: tokio::sync::mpsc::UnboundedSender<String>,
 }
 
 impl McpsmClientHandler {
     pub fn new(
         server_id: String,
         tool_refresh_tx: tokio::sync::mpsc::UnboundedSender<String>,
+        resource_refresh_tx: tokio::sync::mpsc::UnboundedSender<String>,
     ) -> Self {
         Self {
             client_info: ClientInfo::new(
@@ -30,6 +33,7 @@ impl McpsmClientHandler {
             ),
             server_id,
             tool_refresh_tx,
+            resource_refresh_tx,
         }
     }
 }
@@ -45,6 +49,14 @@ impl ClientHandler for McpsmClientHandler {
             self.server_id
         );
         let _ = self.tool_refresh_tx.send(self.server_id.clone());
+    }
+
+    async fn on_resource_list_changed(&self, _context: NotificationContext<RoleClient>) {
+        tracing::info!(
+            "[{}] Received resources/list_changed notification",
+            self.server_id
+        );
+        let _ = self.resource_refresh_tx.send(self.server_id.clone());
     }
 }
 
@@ -71,6 +83,7 @@ pub async fn connect_stdio(
     shell_env: &HashMap<String, String>,
     server_id: &str,
     tool_refresh_tx: tokio::sync::mpsc::UnboundedSender<String>,
+    resource_refresh_tx: tokio::sync::mpsc::UnboundedSender<String>,
 ) -> anyhow::Result<StdioConnection> {
     let command = config.command.as_deref()
         .ok_or_else(|| anyhow::anyhow!("No command specified for stdio server"))?;
@@ -98,7 +111,7 @@ pub async fn connect_stdio(
 
     // (ChildStdout, ChildStdin) implements IntoTransport<RoleClient, ...>
     // rmcp's serve() performs the MCP initialize handshake automatically
-    let handler = McpsmClientHandler::new(server_id.to_string(), tool_refresh_tx);
+    let handler = McpsmClientHandler::new(server_id.to_string(), tool_refresh_tx, resource_refresh_tx);
 
     let client = handler.serve((stdout, stdin)).await?;
 
@@ -115,6 +128,7 @@ pub async fn connect_http(
     auth_header: Option<&str>,
     server_id: &str,
     tool_refresh_tx: tokio::sync::mpsc::UnboundedSender<String>,
+    resource_refresh_tx: tokio::sync::mpsc::UnboundedSender<String>,
 ) -> anyhow::Result<McpClient> {
     use rmcp::transport::streamable_http_client::{
         StreamableHttpClientTransport, StreamableHttpClientTransportConfig,
@@ -128,7 +142,7 @@ pub async fn connect_http(
     };
     let transport = StreamableHttpClientTransport::from_config(config);
 
-    let handler = McpsmClientHandler::new(server_id.to_string(), tool_refresh_tx);
+    let handler = McpsmClientHandler::new(server_id.to_string(), tool_refresh_tx, resource_refresh_tx);
 
     let client = handler.serve(transport).await?;
     Ok(client)
@@ -157,5 +171,24 @@ pub async fn call_tool(
         params = params.with_arguments(args);
     }
     let result = client.call_tool(params).await?;
+    Ok(result)
+}
+
+/// List all resources from a connected MCP client.
+pub async fn list_resources(client: &McpClient) -> anyhow::Result<Vec<Resource>> {
+    let resources = client.list_all_resources().await?;
+    Ok(resources)
+}
+
+/// List all resource templates from a connected MCP client.
+pub async fn list_resource_templates(client: &McpClient) -> anyhow::Result<Vec<ResourceTemplate>> {
+    let templates = client.list_all_resource_templates().await?;
+    Ok(templates)
+}
+
+/// Read a resource by URI from a connected MCP client.
+pub async fn read_resource(client: &McpClient, uri: String) -> anyhow::Result<ReadResourceResult> {
+    let params = ReadResourceRequestParams::new(uri);
+    let result = client.read_resource(params).await?;
     Ok(result)
 }

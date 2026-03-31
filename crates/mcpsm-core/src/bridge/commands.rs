@@ -1,4 +1,4 @@
-use crate::core::server::{ServerConfig, ServerStatus, ToolInfo};
+use crate::core::server::{ResourceInfo, ResourceTemplateInfo, ServerConfig, ServerStatus, ToolInfo};
 use serde::Serialize;
 
 /// Commands sent from the GUI/web to the backend.
@@ -30,6 +30,11 @@ pub enum BackendEvent {
     LogSnapshot { id: String, lines: Vec<String> },
     ConfigLoaded { servers: Vec<(String, ServerConfig)> },
     McpToolsChanged { id: String, tools: Vec<ToolInfo> },
+    McpResourcesChanged {
+        id: String,
+        resources: Vec<ResourceInfo>,
+        resource_templates: Vec<ResourceTemplateInfo>,
+    },
     McpServerReady { id: String },
     Error { message: String },
     Shutdown,

@@ -8,7 +8,8 @@ use crate::core::config;
 use crate::core::log_buffer::LogBuffer;
 use crate::core::process;
 use crate::core::server::{
-    McpCapabilities, McpPeerInfo, ServerConfig, ServerStatus, ToolAnnotationInfo, ToolInfo,
+    McpCapabilities, McpPeerInfo, ResourceInfo, ResourceTemplateInfo, ServerConfig, ServerStatus,
+    ToolAnnotationInfo, ToolInfo,
 };
 use crate::mcp::client::{self, McpClient};
 
@@ -18,6 +19,8 @@ pub struct ServerInfo {
     pub config: ServerConfig,
     pub status: ServerStatus,
     pub tools: Vec<ToolInfo>,
+    pub resources: Vec<ResourceInfo>,
+    pub resource_templates: Vec<ResourceTemplateInfo>,
     pub disabled: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub peer_info: Option<McpPeerInfo>,
@@ -45,6 +48,9 @@ pub struct ServerManager {
     /// Channel for receiving tool refresh requests from MCP `notifications/tools/list_changed`.
     tool_refresh_tx: tokio::sync::mpsc::UnboundedSender<String>,
     tool_refresh_rx: tokio::sync::mpsc::UnboundedReceiver<String>,
+    /// Channel for receiving resource refresh requests from MCP `notifications/resources/list_changed`.
+    resource_refresh_tx: tokio::sync::mpsc::UnboundedSender<String>,
+    resource_refresh_rx: tokio::sync::mpsc::UnboundedReceiver<String>,
     /// Watch channel to signal the proxy when tool lists change.
     tool_change_tx: tokio::sync::watch::Sender<()>,
     /// Port the web server is running on (persisted in config saves).
@@ -61,6 +67,8 @@ struct ManagedServer {
     config: ServerConfig,
     status: ServerStatus,
     tools: Vec<ToolInfo>,
+    resources: Vec<ResourceInfo>,
+    resource_templates: Vec<ResourceTemplateInfo>,
     peer_info: Option<McpPeerInfo>,
     logs: LogBuffer,
     child: Option<tokio::process::Child>,
@@ -77,6 +85,8 @@ struct ConnectSuccess {
     child: Option<tokio::process::Child>,
     pid: Option<u32>,
     tools: Vec<ToolInfo>,
+    resources: Vec<ResourceInfo>,
+    resource_templates: Vec<ResourceTemplateInfo>,
     peer_info: Option<McpPeerInfo>,
 }
 
@@ -125,6 +135,28 @@ fn server_info_to_peer_info(info: &rmcp::model::ServerInfo) -> McpPeerInfo {
     }
 }
 
+/// Convert rmcp Resource to our ResourceInfo.
+fn resource_to_info(resource: &rmcp::model::Resource) -> ResourceInfo {
+    ResourceInfo {
+        uri: resource.uri.clone(),
+        name: resource.name.clone(),
+        title: resource.title.clone(),
+        description: resource.description.clone(),
+        mime_type: resource.mime_type.clone(),
+    }
+}
+
+/// Convert rmcp ResourceTemplate to our ResourceTemplateInfo.
+fn resource_template_to_info(template: &rmcp::model::ResourceTemplate) -> ResourceTemplateInfo {
+    ResourceTemplateInfo {
+        uri_template: template.uri_template.clone(),
+        name: template.name.clone(),
+        title: template.title.clone(),
+        description: template.description.clone(),
+        mime_type: template.mime_type.clone(),
+    }
+}
+
 impl ServerManager {
     pub fn new(
         cmd_rx: tokio::sync::mpsc::UnboundedReceiver<AppCommand>,
@@ -138,6 +170,7 @@ impl ServerManager {
         let (log_tx, log_rx) = tokio::sync::mpsc::unbounded_channel();
         let (connect_result_tx, connect_result_rx) = tokio::sync::mpsc::unbounded_channel();
         let (tool_refresh_tx, tool_refresh_rx) = tokio::sync::mpsc::unbounded_channel();
+        let (resource_refresh_tx, resource_refresh_rx) = tokio::sync::mpsc::unbounded_channel();
         let mut health_check_interval =
             tokio::time::interval(std::time::Duration::from_secs(30));
         health_check_interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
@@ -153,6 +186,8 @@ impl ServerManager {
             connect_result_rx,
             tool_refresh_tx,
             tool_refresh_rx,
+            resource_refresh_tx,
+            resource_refresh_rx,
             tool_change_tx,
             port,
             last_save_instant: std::time::Instant::now()
@@ -192,6 +227,11 @@ impl ServerManager {
                 server_id = self.tool_refresh_rx.recv() => {
                     if let Some(id) = server_id {
                         self.handle_tool_refresh(&id).await;
+                    }
+                }
+                server_id = self.resource_refresh_rx.recv() => {
+                    if let Some(id) = server_id {
+                        self.handle_resource_refresh(&id).await;
                     }
                 }
                 _ = self.health_check_interval.tick() => {
@@ -292,6 +332,8 @@ impl ServerManager {
             Ok(success) => {
                 if let Some(server) = self.servers.get_mut(&id) {
                     server.tools = success.tools.clone();
+                    server.resources = success.resources.clone();
+                    server.resource_templates = success.resource_templates.clone();
                     server.peer_info = success.peer_info.clone();
                     server.status = ServerStatus::Ready { pid: success.pid };
                     server.child = success.child;
@@ -320,6 +362,16 @@ impl ServerManager {
                             tools: success.tools.clone(),
                         },
                     );
+                    if !success.resources.is_empty() || !success.resource_templates.is_empty() {
+                        send(
+                            &self.evt_tx,
+                            BackendEvent::McpResourcesChanged {
+                                id: id.clone(),
+                                resources: success.resources.clone(),
+                                resource_templates: success.resource_templates.clone(),
+                            },
+                        );
+                    }
                     send(
                         &self.evt_tx,
                         BackendEvent::McpServerReady { id: id.clone() },
@@ -335,21 +387,24 @@ impl ServerManager {
                             ),
                         );
                     }
+                    let resource_count = success.resources.len() + success.resource_templates.len();
                     if let Some(pid_val) = pid {
                         self.push_log(
                             &id,
                             format!(
-                                "[mcpsm] Server ready (PID {}), {} tools discovered",
+                                "[mcpsm] Server ready (PID {}), {} tools, {} resources discovered",
                                 pid_val,
-                                success.tools.len()
+                                success.tools.len(),
+                                resource_count
                             ),
                         );
                     } else {
                         self.push_log(
                             &id,
                             format!(
-                                "[mcpsm] Server ready (remote), {} tools discovered",
-                                success.tools.len()
+                                "[mcpsm] Server ready (remote), {} tools, {} resources discovered",
+                                success.tools.len(),
+                                resource_count
                             ),
                         );
                     }
@@ -393,6 +448,8 @@ impl ServerManager {
                             config: config.clone(),
                             status: ServerStatus::Stopped,
                             tools: Vec::new(),
+                            resources: Vec::new(),
+                            resource_templates: Vec::new(),
                             peer_info: None,
                             logs: LogBuffer::new(),
                             child: None,
@@ -518,6 +575,8 @@ impl ServerManager {
                         config: new_config.clone(),
                         status: ServerStatus::Stopped,
                         tools: Vec::new(),
+                        resources: Vec::new(),
+                        resource_templates: Vec::new(),
                         peer_info: None,
                         logs: LogBuffer::new(),
                         child: None,
@@ -545,6 +604,8 @@ impl ServerManager {
                 config,
                 status: ServerStatus::Stopped,
                 tools: Vec::new(),
+                resources: Vec::new(),
+                resource_templates: Vec::new(),
                 peer_info: None,
                 logs: LogBuffer::new(),
                 child: None,
@@ -644,6 +705,8 @@ impl ServerManager {
             server.status = ServerStatus::Starting;
             server.logs.clear();
             server.tools.clear();
+            server.resources.clear();
+            server.resource_templates.clear();
             server.peer_info = None;
         }
         self.sync_shared_state().await;
@@ -714,6 +777,7 @@ impl ServerManager {
         let log_tx = self.log_tx.clone();
         let shell_env = self.shell_env.clone();
         let tool_refresh_tx = self.tool_refresh_tx.clone();
+        let resource_refresh_tx = self.resource_refresh_tx.clone();
 
         tokio::spawn(async move {
             let result = async {
@@ -722,6 +786,7 @@ impl ServerManager {
                     &shell_env,
                     &id_owned,
                     tool_refresh_tx,
+                    resource_refresh_tx,
                 )
                 .await
                 .map_err(|e| format!("Failed to connect: {}", e))?;
@@ -743,11 +808,30 @@ impl ServerManager {
                     .map_err(|e| format!("Failed to list tools: {}", e))?;
                 let tool_infos: Vec<ToolInfo> = tools.iter().map(|t| tool_to_info(t)).collect();
 
+                // List resources and resource templates if capability is advertised
+                let has_resources = peer_info.as_ref().is_some_and(|p| p.capabilities.resources);
+                let (resource_infos, resource_template_infos) = if has_resources {
+                    let resources = client::list_resources(&conn.client)
+                        .await
+                        .unwrap_or_default();
+                    let templates = client::list_resource_templates(&conn.client)
+                        .await
+                        .unwrap_or_default();
+                    (
+                        resources.iter().map(|r| resource_to_info(r)).collect(),
+                        templates.iter().map(|t| resource_template_to_info(t)).collect(),
+                    )
+                } else {
+                    (Vec::new(), Vec::new())
+                };
+
                 Ok(ConnectSuccess {
                     client: Arc::new(conn.client),
                     child: conn.child,
                     pid,
                     tools: tool_infos,
+                    resources: resource_infos,
+                    resource_templates: resource_template_infos,
                     peer_info,
                 })
             }
@@ -766,6 +850,7 @@ impl ServerManager {
         let id_owned = id.to_string();
         let connect_result_tx = self.connect_result_tx.clone();
         let tool_refresh_tx = self.tool_refresh_tx.clone();
+        let resource_refresh_tx = self.resource_refresh_tx.clone();
 
         tokio::spawn(async move {
             let result = async {
@@ -774,6 +859,7 @@ impl ServerManager {
                     auth_header.as_deref(),
                     &id_owned,
                     tool_refresh_tx,
+                    resource_refresh_tx,
                 )
                 .await
                 .map_err(|e| format!("Failed to connect: {}", e))?;
@@ -787,11 +873,30 @@ impl ServerManager {
                     .map_err(|e| format!("Failed to list tools: {}", e))?;
                 let tool_infos: Vec<ToolInfo> = tools.iter().map(|t| tool_to_info(t)).collect();
 
+                // List resources and resource templates if capability is advertised
+                let has_resources = peer_info.as_ref().is_some_and(|p| p.capabilities.resources);
+                let (resource_infos, resource_template_infos) = if has_resources {
+                    let resources = client::list_resources(&mcp_client)
+                        .await
+                        .unwrap_or_default();
+                    let templates = client::list_resource_templates(&mcp_client)
+                        .await
+                        .unwrap_or_default();
+                    (
+                        resources.iter().map(|r| resource_to_info(r)).collect(),
+                        templates.iter().map(|t| resource_template_to_info(t)).collect(),
+                    )
+                } else {
+                    (Vec::new(), Vec::new())
+                };
+
                 Ok(ConnectSuccess {
                     client: Arc::new(mcp_client),
                     child: None,
                     pid: None,
                     tools: tool_infos,
+                    resources: resource_infos,
+                    resource_templates: resource_template_infos,
                     peer_info,
                 })
             }
@@ -842,6 +947,8 @@ impl ServerManager {
             }
             server.child = None;
             server.tools.clear();
+            server.resources.clear();
+            server.resource_templates.clear();
             server.peer_info = None;
             server.status = ServerStatus::Stopped;
         }
@@ -898,6 +1005,8 @@ impl ServerManager {
             server.status = ServerStatus::Starting;
             server.logs.clear();
             server.tools.clear();
+            server.resources.clear();
+            server.resource_templates.clear();
             server.peer_info = None;
 
             to_start.push((id.clone(), server.config.clone()));
@@ -1002,6 +1111,8 @@ impl ServerManager {
                 }
                 server.child = None;
                 server.tools.clear();
+                server.resources.clear();
+                server.resource_templates.clear();
                 server.peer_info = None;
                 server.status = ServerStatus::Error {
                     message: "Connection lost (detected by health check)".into(),
@@ -1098,6 +1209,80 @@ impl ServerManager {
         }
     }
 
+    /// Handle a `notifications/resources/list_changed` from a child MCP server.
+    /// Re-fetches the resource and template lists and updates shared state + dashboard.
+    async fn handle_resource_refresh(&mut self, id: &str) {
+        let is_ready = self
+            .servers
+            .get(id)
+            .is_some_and(|s| matches!(s.status, ServerStatus::Ready { .. }));
+        if !is_ready {
+            return;
+        }
+
+        let client = {
+            let clients = self.shared_mcp_clients.read().await;
+            match clients.get(id) {
+                Some(c) => Arc::clone(c),
+                None => return,
+            }
+        };
+
+        self.push_log(
+            id,
+            "[mcpsm] Received resources/list_changed, refreshing resource list...".to_string(),
+        );
+
+        let resources = match client::list_resources(&client).await {
+            Ok(r) => r.iter().map(|r| resource_to_info(r)).collect::<Vec<_>>(),
+            Err(e) => {
+                tracing::warn!("[{}] Failed to refresh resource list: {}", id, e);
+                self.push_log(
+                    id,
+                    format!("[mcpsm] Failed to refresh resource list: {}", e),
+                );
+                return;
+            }
+        };
+
+        let templates = match client::list_resource_templates(&client).await {
+            Ok(t) => t.iter().map(|t| resource_template_to_info(t)).collect::<Vec<_>>(),
+            Err(e) => {
+                tracing::warn!("[{}] Failed to refresh resource template list: {}", id, e);
+                self.push_log(
+                    id,
+                    format!("[mcpsm] Failed to refresh resource template list: {}", e),
+                );
+                return;
+            }
+        };
+
+        let count = resources.len() + templates.len();
+
+        if let Some(server) = self.servers.get_mut(id) {
+            server.resources = resources.clone();
+            server.resource_templates = templates.clone();
+        }
+
+        self.sync_shared_state().await;
+
+        send(
+            &self.evt_tx,
+            BackendEvent::McpResourcesChanged {
+                id: id.to_string(),
+                resources,
+                resource_templates: templates,
+            },
+        );
+
+        self.push_log(
+            id,
+            format!("[mcpsm] Resource list refreshed: {} resources", count),
+        );
+
+        tracing::info!("[{}] Resource list refreshed: {} resources", id, count);
+    }
+
     fn handle_request_logs(&self, id: &str) {
         if let Some(server) = self.servers.get(id) {
             send(
@@ -1149,6 +1334,8 @@ impl ServerManager {
                         config: s.config.clone(),
                         status: s.status.clone(),
                         tools: s.tools.clone(),
+                        resources: s.resources.clone(),
+                        resource_templates: s.resource_templates.clone(),
                         disabled: s.config.disabled,
                         peer_info: s.peer_info.clone(),
                     },
