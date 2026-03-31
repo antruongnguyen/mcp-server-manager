@@ -3,8 +3,14 @@ name: CI Windows
 on:
   push:
     branches: [main]
+    paths:
+      - "crates/**"
+      - "Cargo.*"
   pull_request:
     branches: [main]
+    paths:
+      - "crates/**"
+      - "Cargo.*"
 
 env:
   CARGO_TERM_COLOR: always

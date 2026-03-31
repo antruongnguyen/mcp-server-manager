@@ -2,6 +2,8 @@
 
 A native macOS application that manages [Model Context Protocol](https://modelcontextprotocol.io/) (MCP) server instances and acts as a **unified MCP proxy**. Configure your MCP servers once, then point any client (Claude Code, Cline, GitHub Copilot, Cursor, etc.) at a single endpoint — MCPSM aggregates tools from all running servers automatically.
 
+![Screenshot](docs/resources/screenshot-dark.png)
+
 ## Features
 
 - **Unified MCP proxy** — single endpoint aggregates tools from all child servers
