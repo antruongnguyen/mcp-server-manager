@@ -1583,6 +1583,12 @@ function HomePanel() {
   const stdioCount = ids.filter(id => srvs[id].config && srvs[id].config.command).length;
   const httpCount = ids.filter(id => srvs[id].config && srvs[id].config.url).length;
   const totalTools = ids.reduce((sum, id) => sum + ((srvs[id].tools && srvs[id].tools.length) || 0), 0);
+  const totalResources = ids.reduce((sum, id) => {
+    const srv = srvs[id];
+    return sum + ((srv.resources && srv.resources.length) || 0)
+      + ((srv.resource_templates && srv.resource_templates.length) || 0);
+  }, 0);
+  const totalPrompts = ids.reduce((sum, id) => sum + ((srvs[id].prompts && srvs[id].prompts.length) || 0), 0);
   const url = mcpUrl();
   const port = window.location.port || '3456';
 
@@ -1607,6 +1613,14 @@ function HomePanel() {
       <div class="stat-card">
         <span class="stat-value accent">${totalTools}</span>
         <span class="stat-label">Tools</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-value blue">${totalResources}</span>
+        <span class="stat-label">Resources</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-value accent">${totalPrompts}</span>
+        <span class="stat-label">Prompts</span>
       </div>
     </div>
 
