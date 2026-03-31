@@ -1034,6 +1034,23 @@ function TransportBadge({ server }) {
   return null;
 }
 
+function StatCard({ value, label, color }) {
+  return html`<div class="stat-card">
+    <span class="stat-value${color ? ' ' + color : ''}">${value}</span>
+    <span class="stat-label">${label}</span>
+  </div>`;
+}
+
+function RegistryItem({ name, url, description }) {
+  return html`<div class="registry-item">
+    <a href=${url} target="_blank" rel="noopener noreferrer">
+      <span class="registry-name">${name}</span>
+      <span class="registry-desc">${description}</span>
+      <${IconExternalLink} />
+    </a>
+  </div>`;
+}
+
 function AnnotationBadge({ type }) {
   const map = {
     'read-only': 'readonly',
@@ -1661,34 +1678,13 @@ function HomePanel() {
 
   return html`<div id="home-panel" class="home-panel">
     <div class="home-stats">
-      <div class="stat-card">
-        <span class="stat-value green">${activeCount}</span>
-        <span class="stat-label">Active</span>
-      </div>
-      <div class="stat-card">
-        <span class="stat-value">${inactiveCount}</span>
-        <span class="stat-label">Inactive</span>
-      </div>
-      <div class="stat-card">
-        <span class="stat-value green">${stdioCount}</span>
-        <span class="stat-label">STDIO</span>
-      </div>
-      <div class="stat-card">
-        <span class="stat-value blue">${httpCount}</span>
-        <span class="stat-label">HTTP</span>
-      </div>
-      <div class="stat-card">
-        <span class="stat-value accent">${totalTools}</span>
-        <span class="stat-label">Tools</span>
-      </div>
-      <div class="stat-card">
-        <span class="stat-value blue">${totalResources}</span>
-        <span class="stat-label">Resources</span>
-      </div>
-      <div class="stat-card">
-        <span class="stat-value accent">${totalPrompts}</span>
-        <span class="stat-label">Prompts</span>
-      </div>
+      <${StatCard} value=${activeCount} label="Active" color="green" />
+      <${StatCard} value=${inactiveCount} label="Inactive" />
+      <${StatCard} value=${stdioCount} label="STDIO" color="green" />
+      <${StatCard} value=${httpCount} label="HTTP" color="blue" />
+      <${StatCard} value=${totalTools} label="Tools" color="accent" />
+      <${StatCard} value=${totalResources} label="Resources" color="blue" />
+      <${StatCard} value=${totalPrompts} label="Prompts" color="accent" />
     </div>
 
     <div id="home-config" class="home-section">
@@ -1719,55 +1715,12 @@ function HomePanel() {
       </div>
       <div class="home-info">
         <div class="registry-list">
-          <div class="registry-item">
-            <a href="https://mcpmarket.com" target="_blank" rel="noopener noreferrer">
-              <span class="registry-name">MCP Market</span>
-              <span class="registry-desc">Curated marketplace for discovering MCP servers</span>
-              <${IconExternalLink} />
-            </a>
-          </div>
-          <div class="registry-item">
-            <a href="https://mcpservers.org" target="_blank" rel="noopener noreferrer">
-              <span class="registry-name">MCP Servers</span>
-              <span class="registry-desc">Community directory of MCP servers</span>
-              <${IconExternalLink} />
-            </a>
-          </div>
-          <div class="registry-item">
-            <a href="https://github.com/modelcontextprotocol/servers" target="_blank" rel="noopener noreferrer">
-              <span class="registry-name">Official MCP Registry</span>
-              <span class="registry-desc">Official reference servers maintained by the MCP project</span>
-              <${IconExternalLink} />
-            </a>
-          </div>
-          <div class="registry-item">
-            <a href="https://mcp.so" target="_blank" rel="noopener noreferrer">
-              <span class="registry-name">MCP.so</span>
-              <span class="registry-desc">Usage-metrics-driven directory with call-volume rankings</span>
-              <${IconExternalLink} />
-            </a>
-          </div>
-          <div class="registry-item">
-            <a href="https://glama.ai/mcp/servers" target="_blank" rel="noopener noreferrer">
-              <span class="registry-name">Glama MCP Registry</span>
-              <span class="registry-desc">Production-ready servers with quality curation</span>
-              <${IconExternalLink} />
-            </a>
-          </div>
-          <div class="registry-item">
-            <a href="https://opentools.com" target="_blank" rel="noopener noreferrer">
-              <span class="registry-name">OpenTools</span>
-              <span class="registry-desc">Task- and product-oriented MCP server discovery</span>
-              <${IconExternalLink} />
-            </a>
-          </div>
-          <div class="registry-item">
-            <a href="https://mcp-get.com" target="_blank" rel="noopener noreferrer">
-              <span class="registry-name">MCP-Get</span>
-              <span class="registry-desc">Real-time monitoring and uptime-driven MCP server discovery</span>
-              <${IconExternalLink} />
-            </a>
-          </div>
+          <${RegistryItem} name="MCP Market" url="https://mcpmarket.com" description="Curated marketplace for discovering MCP servers" />
+          <${RegistryItem} name="MCP Servers" url="https://mcpservers.org" description="Community directory of MCP servers" />
+          <${RegistryItem} name="Official MCP Registry" url="https://github.com/modelcontextprotocol/servers" description="Official reference servers maintained by the MCP project" />
+          <${RegistryItem} name="MCP.so" url="https://mcp.so" description="Usage-metrics-driven directory with call-volume rankings" />
+          <${RegistryItem} name="Glama MCP Registry" url="https://glama.ai/mcp/servers" description="Production-ready servers with quality curation" />
+          <${RegistryItem} name="OpenTools" url="https://opentools.com" description="Task- and product-oriented MCP server discovery" />
         </div>
       </div>
     </div>
