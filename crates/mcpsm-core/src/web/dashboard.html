@@ -774,6 +774,7 @@ function handleSSEvent(evt) {
           updated.tools = [];
           updated.resources = [];
           updated.resource_templates = [];
+          updated.prompts = [];
           updated.peer_info = null;
           logs.value = { ...logs.value, [evt.id]: [] };
         }
@@ -797,6 +798,13 @@ function handleSSEvent(evt) {
       const cur = servers.value;
       if (cur[evt.id]) {
         servers.value = { ...cur, [evt.id]: { ...cur[evt.id], resources: evt.resources || [], resource_templates: evt.resource_templates || [] } };
+      }
+      break;
+    }
+    case 'McpPromptsChanged': {
+      const cur = servers.value;
+      if (cur[evt.id]) {
+        servers.value = { ...cur, [evt.id]: { ...cur[evt.id], prompts: evt.prompts || [] } };
       }
       break;
     }
@@ -1068,7 +1076,7 @@ function Header() {
     <div class="header-actions">
       <div class="tool-search-wrap">
         <${IconSearch} />
-        <input class="tool-search-input" type="text" placeholder="Search tools & resources…"
+        <input class="tool-search-input" type="text" placeholder="Search tools, resources & prompts…"
                value=${toolSearch.value}
                onInput=${(e) => toolSearch.value = e.target.value}
                onKeyDown=${(e) => e.key === 'Escape' && (toolSearch.value = '', e.target.blur())} />
@@ -1257,6 +1265,29 @@ function ResourcesPanel({ resources, resourceTemplates }) {
   </div>`;
 }
 
+function PromptItem({ prompt }) {
+  const args = prompt.arguments || [];
+  return html`<div class="tool-item">
+    <div>
+      <span class="tool-name">${prompt.name}</span>
+      ${prompt.title && html`<span class="tool-title">${prompt.title}</span>`}
+    </div>
+    ${prompt.description && html`<div class="tool-desc">${prompt.description}</div>`}
+    ${args.length > 0 && html`<div class="tool-annotations" style="margin-top:4px">
+      ${args.map(a => html`<span key=${a.name} class="annot-badge ${a.required ? 'destructive' : ''}" style="${!a.required ? 'background:var(--surface2);color:var(--text2)' : ''}" title=${a.description || a.name}>${a.name}${a.required ? ' *' : ''}</span>`)}
+    </div>`}
+  </div>`;
+}
+
+function PromptsPanel({ prompts }) {
+  if (!prompts || prompts.length === 0) {
+    return html`<div class="tab-placeholder">No prompts available</div>`;
+  }
+  return html`<div class="tools-panel">
+    ${prompts.map(p => html`<${PromptItem} key=${p.name} prompt=${p} />`)}
+  </div>`;
+}
+
 function TabBar({ server }) {
   const caps = server.peer_info ? server.peer_info.capabilities : null;
   const tools = server.tools || [];
@@ -1265,7 +1296,8 @@ function TabBar({ server }) {
   const resourceCount = resources.length + resourceTemplates.length;
   const tabs = [{ key: 'tools', label: 'Tools (' + tools.length + ')' }];
   if (caps && caps.resources) tabs.push({ key: 'resources', label: 'Resources' + (resourceCount > 0 ? ' (' + resourceCount + ')' : '') });
-  if (caps && caps.prompts) tabs.push({ key: 'prompts', label: 'Prompts' });
+  const prompts = server.prompts || [];
+  if (caps && caps.prompts) tabs.push({ key: 'prompts', label: 'Prompts' + (prompts.length > 0 ? ' (' + prompts.length + ')' : '') });
   if (caps && caps.logging) tabs.push({ key: 'logging', label: 'Logging' });
 
   const current = activeTab.value;
@@ -1286,6 +1318,9 @@ function TabContent({ server }) {
   }
   if (tab === 'resources') {
     return html`<div class="tab-content"><${ResourcesPanel} resources=${server.resources || []} resourceTemplates=${server.resource_templates || []} /></div>`;
+  }
+  if (tab === 'prompts') {
+    return html`<div class="tab-content"><${PromptsPanel} prompts=${server.prompts || []} /></div>`;
   }
   return html`<div class="tab-content"><div class="tab-placeholder">Not yet implemented</div></div>`;
 }
@@ -1507,7 +1542,12 @@ function SearchResults() {
       || (t.description && t.description.toLowerCase().includes(q))
       || (t.uri_template && t.uri_template.toLowerCase().includes(q))
     );
-    const totalMatched = matchedTools.length + matchedResources.length + matchedTemplates.length;
+    const matchedPrompts = (srv.prompts || []).filter(p =>
+      (p.name && p.name.toLowerCase().includes(q))
+      || (p.title && p.title.toLowerCase().includes(q))
+      || (p.description && p.description.toLowerCase().includes(q))
+    );
+    const totalMatched = matchedTools.length + matchedResources.length + matchedTemplates.length + matchedPrompts.length;
     const serverMatch = id.toLowerCase().includes(q);
     if (totalMatched > 0 || serverMatch) {
       results.push({
@@ -1515,12 +1555,14 @@ function SearchResults() {
         tools: serverMatch && matchedTools.length === 0 ? (srv.tools || []) : matchedTools,
         resources: serverMatch && matchedResources.length === 0 ? (srv.resources || []) : matchedResources,
         resourceTemplates: serverMatch && matchedTemplates.length === 0 ? (srv.resource_templates || []) : matchedTemplates,
+        prompts: serverMatch && matchedPrompts.length === 0 ? (srv.prompts || []) : matchedPrompts,
       });
     }
   }
   const totalTools = results.reduce((sum, r) => sum + r.tools.length, 0);
   const totalResources = results.reduce((sum, r) => sum + r.resources.length + r.resourceTemplates.length, 0);
-  const totalMatches = totalTools + totalResources;
+  const totalPrompts = results.reduce((sum, r) => sum + r.prompts.length, 0);
+  const totalMatches = totalTools + totalResources + totalPrompts;
 
   const goToServer = useCallback((serverId, tab) => {
     batch(() => {
@@ -1535,7 +1577,7 @@ function SearchResults() {
     return html`<div class="content">
       <div class="search-empty">
         <div style="font-size:20px;margin-bottom:8px">No results found</div>
-        <div>No tools or resources matching "<strong>${toolSearch.value}</strong>" across any server</div>
+        <div>No matches for "<strong>${toolSearch.value}</strong>" across any server</div>
       </div>
     </div>`;
   }
@@ -1546,24 +1588,32 @@ function SearchResults() {
         <strong>${totalMatches}</strong> result${totalMatches !== 1 ? 's' : ''} matching "<strong>${toolSearch.value}</strong>" across <strong>${results.length}</strong> server${results.length !== 1 ? 's' : ''}
         ${totalTools > 0 && html` · <span style="color:var(--accent)">${totalTools} tool${totalTools !== 1 ? 's' : ''}</span>`}
         ${totalResources > 0 && html` · <span style="color:var(--green)">${totalResources} resource${totalResources !== 1 ? 's' : ''}</span>`}
+        ${totalPrompts > 0 && html` · <span style="color:var(--yellow)">${totalPrompts} prompt${totalPrompts !== 1 ? 's' : ''}</span>`}
       </div>
-      ${results.map(r => html`
-        <div class="search-group" key=${r.id}>
-          <div class="search-group-header" onClick=${() => goToServer(r.id, r.tools.length > 0 ? 'tools' : 'resources')}>
-            <span class="search-server-dot" style="background:${statusDotColor(r.server.status)}"></span>
-            ${r.id} (${r.tools.length + r.resources.length + r.resourceTemplates.length})
+      ${results.map(r => {
+        const bestTab = r.tools.length > 0 ? 'tools' : r.resources.length > 0 ? 'resources' : 'prompts';
+        const count = r.tools.length + r.resources.length + r.resourceTemplates.length + r.prompts.length;
+        return html`
+          <div class="search-group" key=${r.id}>
+            <div class="search-group-header" onClick=${() => goToServer(r.id, bestTab)}>
+              <span class="search-server-dot" style="background:${statusDotColor(r.server.status)}"></span>
+              ${r.id} (${count})
+            </div>
+            ${r.tools.length > 0 && html`<div class="tools-panel">
+              ${r.tools.map(t => html`<${ToolItem} key=${typeof t === 'string' ? t : t.name} tool=${t} />`)}
+            </div>`}
+            ${r.resources.length > 0 && html`<div class="tools-panel">
+              ${r.resources.map(res => html`<${ResourceItem} key=${res.uri} resource=${res} />`)}
+            </div>`}
+            ${r.resourceTemplates.length > 0 && html`<div class="tools-panel">
+              ${r.resourceTemplates.map(t => html`<${ResourceTemplateItem} key=${t.uri_template} template=${t} />`)}
+            </div>`}
+            ${r.prompts.length > 0 && html`<div class="tools-panel">
+              ${r.prompts.map(p => html`<${PromptItem} key=${p.name} prompt=${p} />`)}
+            </div>`}
           </div>
-          ${r.tools.length > 0 && html`<div class="tools-panel">
-            ${r.tools.map(t => html`<${ToolItem} key=${typeof t === 'string' ? t : t.name} tool=${t} />`)}
-          </div>`}
-          ${r.resources.length > 0 && html`<div class="tools-panel">
-            ${r.resources.map(res => html`<${ResourceItem} key=${res.uri} resource=${res} />`)}
-          </div>`}
-          ${r.resourceTemplates.length > 0 && html`<div class="tools-panel">
-            ${r.resourceTemplates.map(t => html`<${ResourceTemplateItem} key=${t.uri_template} template=${t} />`)}
-          </div>`}
-        </div>
-      `)}
+        `;
+      })}
     </div>
   </div>`;
 }
