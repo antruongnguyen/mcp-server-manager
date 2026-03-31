@@ -1325,6 +1325,11 @@ const LOG_LEVEL_COLORS = {
   warning: 'var(--yellow)', error: 'var(--red)', critical: 'var(--red)',
   alert: 'var(--red)', emergency: 'var(--red)',
 };
+const LOG_LEVEL_BG = {
+  debug: 'var(--surface2)', info: 'var(--blue-bg)', notice: 'var(--blue-bg)',
+  warning: 'var(--yellow-bg)', error: 'var(--red-bg)', critical: 'var(--red-bg)',
+  alert: 'var(--red-bg)', emergency: 'var(--red-bg)',
+};
 
 function LoggingPanel({ id, server }) {
   const logging = server.logging || {};
@@ -1332,15 +1337,14 @@ function LoggingPanel({ id, server }) {
   const viewerRef = useRef(null);
   const [autoScroll, setAutoScroll] = useState(true);
 
-  // Filter MCP log messages from the log stream
-  const allLines = logs.value[id] || [];
-  const mcpLines = useMemo(() => allLines.filter(l => l.includes('[mcp]')), [allLines]);
+  // Use structured MCP log messages
+  const messages = mcpLogMessages.value[id] || [];
 
   useEffect(() => {
     if (autoScroll && viewerRef.current) {
       viewerRef.current.scrollTop = viewerRef.current.scrollHeight;
     }
-  }, [autoScroll, mcpLines.length]);
+  }, [autoScroll, messages.length]);
 
   const handleLevelChange = useCallback(async (level) => {
     await apiSetLogLevel(id, level);
@@ -1350,6 +1354,20 @@ function LoggingPanel({ id, server }) {
       servers.value = { ...servers.value, [id]: { ...cur, logging: { ...cur.logging, current_level: level } } };
     }
   }, [id]);
+
+  const formatTimestamp = useCallback((ts) => {
+    try {
+      const d = new Date(Number(ts));
+      return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', fractionalSecondDigits: 3 });
+    } catch (_) {
+      return ts;
+    }
+  }, []);
+
+  const formatData = useCallback((data) => {
+    if (typeof data === 'string') return data;
+    try { return JSON.stringify(data, null, 2); } catch (_) { return String(data); }
+  }, []);
 
   return html`<div style="display:flex;flex-direction:column;height:100%">
     <div style="padding:10px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px;flex-wrap:wrap">
@@ -1370,9 +1388,15 @@ function LoggingPanel({ id, server }) {
       </label>
     </div>
     <div ref=${viewerRef} style="flex:1;overflow-y:auto;padding:8px 20px;font-family:'SF Mono','Menlo','Consolas',monospace;font-size:12px;line-height:1.6;background:var(--bg)">
-      ${mcpLines.length === 0
+      ${messages.length === 0
         ? html`<div style="text-align:center;padding:24px;color:var(--text2);font-family:inherit;font-size:12px">No MCP log messages yet</div>`
-        : mcpLines.map((l, i) => html`<div key=${i} style="white-space:pre-wrap;word-break:break-all;color:var(--text);opacity:0.85">${l}</div>`)
+        : messages.map((m, i) => html`<div key=${i} style="display:flex;gap:8px;align-items:baseline;white-space:pre-wrap;word-break:break-all;padding:1px 0">
+            <span style="color:var(--text2);font-size:11px;flex-shrink:0">${formatTimestamp(m.timestamp)}</span>
+            <span style="display:inline-block;padding:0 5px;border-radius:3px;font-size:10px;font-weight:600;flex-shrink:0;text-transform:uppercase;
+              background:${LOG_LEVEL_BG[m.level] || 'var(--surface2)'};color:${LOG_LEVEL_COLORS[m.level] || 'var(--text2)'}">${m.level}</span>
+            ${m.logger && html`<span style="color:var(--accent);font-size:11px;flex-shrink:0">${m.logger}</span>`}
+            <span style="color:var(--text);opacity:0.85">${formatData(m.data)}</span>
+          </div>`)
       }
     </div>
   </div>`;
