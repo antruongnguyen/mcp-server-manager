@@ -100,6 +100,23 @@ pub async fn clear_logs(
     StatusCode::ACCEPTED
 }
 
+#[derive(serde::Deserialize)]
+pub struct SetLogLevelRequest {
+    pub level: String,
+}
+
+pub async fn set_log_level(
+    State(state): State<Arc<AppState>>,
+    Path(id): Path<String>,
+    Json(body): Json<SetLogLevelRequest>,
+) -> StatusCode {
+    let _ = state.cmd_tx.send(AppCommand::SetLoggingLevel {
+        id,
+        level: body.level,
+    });
+    StatusCode::ACCEPTED
+}
+
 pub async fn list_templates() -> Json<serde_json::Value> {
     let templates = builtin_templates();
     let list: Vec<serde_json::Value> = templates

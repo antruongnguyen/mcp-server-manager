@@ -158,3 +158,18 @@ pub struct PromptArgumentInfo {
     pub description: Option<String>,
     pub required: bool,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LoggingInfo {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub current_level: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LoggingMessageInfo {
+    pub level: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub logger: Option<String>,
+    pub data: serde_json::Value,
+    pub timestamp: String,
+}

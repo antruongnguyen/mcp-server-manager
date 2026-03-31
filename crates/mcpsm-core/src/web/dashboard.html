@@ -557,6 +557,7 @@ const logExpanded = signal(false);
 const toolSearch = signal('');
 const modalState = signal({ type: null, data: null });
 const shutdownFlag = signal(false);
+const mcpLogMessages = signal({}); // { serverId: [{ level, logger, data, timestamp }] }
 
 // ---------------------------------------------------------------------------
 // Computed Values
@@ -705,6 +706,9 @@ async function apiDeleteServer(id) {
     const l = { ...logs.value };
     delete l[id];
     logs.value = l;
+    const m = { ...mcpLogMessages.value };
+    delete m[id];
+    mcpLogMessages.value = m;
     if (selectedId.value === id) selectedId.value = null;
   });
 }
@@ -784,7 +788,11 @@ function handleSSEvent(evt) {
           updated.resource_templates = [];
           updated.prompts = [];
           updated.peer_info = null;
+          updated.logging = null;
           logs.value = { ...logs.value, [evt.id]: [] };
+          const curMsgs = { ...mcpLogMessages.value };
+          delete curMsgs[evt.id];
+          mcpLogMessages.value = curMsgs;
         }
         servers.value = { ...cur, [evt.id]: updated };
         if (evt.status.type === 'Error' && selectedId.value === evt.id) {
@@ -813,6 +821,21 @@ function handleSSEvent(evt) {
       const cur = servers.value;
       if (cur[evt.id]) {
         servers.value = { ...cur, [evt.id]: { ...cur[evt.id], prompts: evt.prompts || [] } };
+      }
+      break;
+    }
+    case 'McpLoggingMessage': {
+      const curMsgs = { ...mcpLogMessages.value };
+      let arr = [...(curMsgs[evt.id] || []), evt.message];
+      if (arr.length > 200) arr = arr.slice(-200);
+      curMsgs[evt.id] = arr;
+      mcpLogMessages.value = curMsgs;
+      break;
+    }
+    case 'McpLoggingLevelChanged': {
+      const cur = servers.value;
+      if (cur[evt.id]) {
+        servers.value = { ...cur, [evt.id]: { ...cur[evt.id], logging: { current_level: evt.level } } };
       }
       break;
     }

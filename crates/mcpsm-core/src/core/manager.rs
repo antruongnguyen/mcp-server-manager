@@ -8,8 +8,8 @@ use crate::core::config;
 use crate::core::log_buffer::LogBuffer;
 use crate::core::process;
 use crate::core::server::{
-    McpCapabilities, McpPeerInfo, PromptArgumentInfo, PromptInfo, ResourceInfo,
-    ResourceTemplateInfo, ServerConfig, ServerStatus, ToolAnnotationInfo, ToolInfo,
+    LoggingInfo, LoggingMessageInfo, McpCapabilities, McpPeerInfo, PromptArgumentInfo, PromptInfo,
+    ResourceInfo, ResourceTemplateInfo, ServerConfig, ServerStatus, ToolAnnotationInfo, ToolInfo,
 };
 use crate::mcp::client::{self, McpClient};
 
@@ -25,6 +25,8 @@ pub struct ServerInfo {
     pub disabled: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub peer_info: Option<McpPeerInfo>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub logging: Option<LoggingInfo>,
 }
 
 /// Shared state accessible by both the manager and the web server.
@@ -55,6 +57,9 @@ pub struct ServerManager {
     /// Channel for receiving prompt refresh requests from MCP `notifications/prompts/list_changed`.
     prompt_refresh_tx: tokio::sync::mpsc::UnboundedSender<String>,
     prompt_refresh_rx: tokio::sync::mpsc::UnboundedReceiver<String>,
+    /// Channel for receiving MCP logging messages from `notifications/message`.
+    logging_message_tx: tokio::sync::mpsc::UnboundedSender<(String, rmcp::model::LoggingMessageNotificationParam)>,
+    logging_message_rx: tokio::sync::mpsc::UnboundedReceiver<(String, rmcp::model::LoggingMessageNotificationParam)>,
     /// Watch channel to signal the proxy when tool lists change.
     tool_change_tx: tokio::sync::watch::Sender<()>,
     /// Port the web server is running on (persisted in config saves).
@@ -75,6 +80,7 @@ struct ManagedServer {
     resource_templates: Vec<ResourceTemplateInfo>,
     prompts: Vec<PromptInfo>,
     peer_info: Option<McpPeerInfo>,
+    current_log_level: Option<String>,
     logs: LogBuffer,
     child: Option<tokio::process::Child>,
 }
@@ -201,6 +207,7 @@ impl ServerManager {
         let (tool_refresh_tx, tool_refresh_rx) = tokio::sync::mpsc::unbounded_channel();
         let (resource_refresh_tx, resource_refresh_rx) = tokio::sync::mpsc::unbounded_channel();
         let (prompt_refresh_tx, prompt_refresh_rx) = tokio::sync::mpsc::unbounded_channel();
+        let (logging_message_tx, logging_message_rx) = tokio::sync::mpsc::unbounded_channel();
         let mut health_check_interval =
             tokio::time::interval(std::time::Duration::from_secs(30));
         health_check_interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
@@ -220,6 +227,8 @@ impl ServerManager {
             resource_refresh_rx,
             prompt_refresh_tx,
             prompt_refresh_rx,
+            logging_message_tx,
+            logging_message_rx,
             tool_change_tx,
             port,
             last_save_instant: std::time::Instant::now()
@@ -269,6 +278,11 @@ impl ServerManager {
                 server_id = self.prompt_refresh_rx.recv() => {
                     if let Some(id) = server_id {
                         self.handle_prompt_refresh(&id).await;
+                    }
+                }
+                msg = self.logging_message_rx.recv() => {
+                    if let Some((id, params)) = msg {
+                        self.handle_logging_message(&id, params).await;
                     }
                 }
                 _ = self.health_check_interval.tick() => {
@@ -350,6 +364,10 @@ impl ServerManager {
             }
             AppCommand::ClearLogs { id } => {
                 self.handle_clear_logs(&id);
+                false
+            }
+            AppCommand::SetLoggingLevel { id, level } => {
+                self.handle_set_logging_level(&id, &level).await;
                 false
             }
         }
@@ -502,6 +520,7 @@ impl ServerManager {
                             resource_templates: Vec::new(),
                             prompts: Vec::new(),
                             peer_info: None,
+                            current_log_level: None,
                             logs: LogBuffer::new(),
                             child: None,
                         },
@@ -630,6 +649,7 @@ impl ServerManager {
                         resource_templates: Vec::new(),
                         prompts: Vec::new(),
                         peer_info: None,
+                        current_log_level: None,
                         logs: LogBuffer::new(),
                         child: None,
                     },
@@ -660,6 +680,7 @@ impl ServerManager {
                 resource_templates: Vec::new(),
                 prompts: Vec::new(),
                 peer_info: None,
+                current_log_level: None,
                 logs: LogBuffer::new(),
                 child: None,
             },
@@ -833,6 +854,7 @@ impl ServerManager {
         let tool_refresh_tx = self.tool_refresh_tx.clone();
         let resource_refresh_tx = self.resource_refresh_tx.clone();
         let prompt_refresh_tx = self.prompt_refresh_tx.clone();
+        let logging_message_tx = self.logging_message_tx.clone();
 
         tokio::spawn(async move {
             let result = async {
@@ -843,6 +865,7 @@ impl ServerManager {
                     tool_refresh_tx,
                     resource_refresh_tx,
                     prompt_refresh_tx,
+                    logging_message_tx,
                 )
                 .await
                 .map_err(|e| format!("Failed to connect: {}", e))?;
@@ -922,6 +945,7 @@ impl ServerManager {
         let tool_refresh_tx = self.tool_refresh_tx.clone();
         let resource_refresh_tx = self.resource_refresh_tx.clone();
         let prompt_refresh_tx = self.prompt_refresh_tx.clone();
+        let logging_message_tx = self.logging_message_tx.clone();
 
         tokio::spawn(async move {
             let result = async {
@@ -932,6 +956,7 @@ impl ServerManager {
                     tool_refresh_tx,
                     resource_refresh_tx,
                     prompt_refresh_tx,
+                    logging_message_tx,
                 )
                 .await
                 .map_err(|e| format!("Failed to connect: {}", e))?;
@@ -1037,6 +1062,7 @@ impl ServerManager {
             server.resource_templates.clear();
             server.prompts.clear();
             server.peer_info = None;
+            server.current_log_level = None;
             server.status = ServerStatus::Stopped;
         }
         let _ = self.tool_change_tx.send(());
@@ -1432,6 +1458,103 @@ impl ServerManager {
         }
     }
 
+    /// Handle `SetLoggingLevel` command: call `set_logging_level` on the MCP client.
+    async fn handle_set_logging_level(&mut self, id: &str, level: &str) {
+        let client = {
+            let clients = self.shared_mcp_clients.read().await;
+            clients.get(id).map(Arc::clone)
+        };
+
+        let Some(client) = client else {
+            self.push_log(
+                id,
+                format!("[mcpsm] Cannot set log level: server '{}' not connected", id),
+            );
+            return;
+        };
+
+        let logging_level = match level {
+            "debug" => rmcp::model::LoggingLevel::Debug,
+            "info" => rmcp::model::LoggingLevel::Info,
+            "notice" => rmcp::model::LoggingLevel::Notice,
+            "warning" => rmcp::model::LoggingLevel::Warning,
+            "error" => rmcp::model::LoggingLevel::Error,
+            "critical" => rmcp::model::LoggingLevel::Critical,
+            "alert" => rmcp::model::LoggingLevel::Alert,
+            "emergency" => rmcp::model::LoggingLevel::Emergency,
+            _ => {
+                self.push_log(id, format!("[mcpsm] Invalid log level: {}", level));
+                return;
+            }
+        };
+
+        match client::set_logging_level(&client, logging_level).await {
+            Ok(()) => {
+                if let Some(server) = self.servers.get_mut(id) {
+                    server.current_log_level = Some(level.to_string());
+                }
+                self.sync_shared_state().await;
+                send(
+                    &self.evt_tx,
+                    BackendEvent::McpLoggingLevelChanged {
+                        id: id.to_string(),
+                        level: level.to_string(),
+                    },
+                );
+                self.push_log(id, format!("[mcp] Log level set to {}", level));
+            }
+            Err(e) => {
+                self.push_log(id, format!("[mcpsm] Failed to set log level: {}", e));
+            }
+        }
+    }
+
+    /// Handle a `notifications/message` (logging) from a child MCP server.
+    async fn handle_logging_message(
+        &mut self,
+        id: &str,
+        params: rmcp::model::LoggingMessageNotificationParam,
+    ) {
+        let level_str = format!("{:?}", params.level).to_lowercase();
+        let logger = params.logger.clone();
+        let data = params.data.clone();
+
+        // Epoch milliseconds for the frontend to format
+        let epoch_ms = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_millis();
+        let timestamp = epoch_ms.to_string();
+
+        let message = LoggingMessageInfo {
+            level: level_str.clone(),
+            logger: logger.clone(),
+            data: data.clone(),
+            timestamp: timestamp.clone(),
+        };
+
+        // Format as a log line for the log buffer
+        let data_str = if data.is_string() {
+            data.as_str().unwrap_or("").to_string()
+        } else {
+            serde_json::to_string(&data).unwrap_or_default()
+        };
+        let logger_part = logger
+            .as_ref()
+            .map(|l| format!(" [{}]", l))
+            .unwrap_or_default();
+        let log_line = format!("[mcp] [{}]{} {}", level_str, logger_part, data_str);
+        self.push_log(id, log_line);
+
+        send(
+            &self.evt_tx,
+            BackendEvent::McpLoggingMessage {
+                id: id.to_string(),
+                message,
+            },
+        );
+    }
+
     fn handle_request_logs(&self, id: &str) {
         if let Some(server) = self.servers.get(id) {
             send(
@@ -1488,6 +1611,9 @@ impl ServerManager {
                         prompts: s.prompts.clone(),
                         disabled: s.config.disabled,
                         peer_info: s.peer_info.clone(),
+                        logging: s.current_log_level.as_ref().map(|level| LoggingInfo {
+                            current_level: Some(level.clone()),
+                        }),
                     },
                 )
             })

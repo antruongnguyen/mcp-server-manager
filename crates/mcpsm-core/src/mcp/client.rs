@@ -4,8 +4,8 @@ use std::process::Stdio;
 use rmcp::handler::client::ClientHandler;
 use rmcp::model::{
     CallToolRequestParams, CallToolResult, ClientInfo, GetPromptRequestParams, GetPromptResult,
-    Implementation, Prompt, ReadResourceRequestParams, ReadResourceResult, Resource,
-    ResourceTemplate, ServerInfo, Tool,
+    Implementation, LoggingMessageNotificationParam, Prompt, ReadResourceRequestParams,
+    ReadResourceResult, Resource, ResourceTemplate, ServerInfo, SetLevelRequestParams, Tool,
 };
 use rmcp::service::{NotificationContext, RunningService};
 use rmcp::{RoleClient, ServiceExt};
@@ -20,6 +20,7 @@ pub struct McpsmClientHandler {
     tool_refresh_tx: tokio::sync::mpsc::UnboundedSender<String>,
     resource_refresh_tx: tokio::sync::mpsc::UnboundedSender<String>,
     prompt_refresh_tx: tokio::sync::mpsc::UnboundedSender<String>,
+    logging_message_tx: tokio::sync::mpsc::UnboundedSender<(String, LoggingMessageNotificationParam)>,
 }
 
 impl McpsmClientHandler {
@@ -28,6 +29,7 @@ impl McpsmClientHandler {
         tool_refresh_tx: tokio::sync::mpsc::UnboundedSender<String>,
         resource_refresh_tx: tokio::sync::mpsc::UnboundedSender<String>,
         prompt_refresh_tx: tokio::sync::mpsc::UnboundedSender<String>,
+        logging_message_tx: tokio::sync::mpsc::UnboundedSender<(String, LoggingMessageNotificationParam)>,
     ) -> Self {
         Self {
             client_info: ClientInfo::new(
@@ -38,6 +40,7 @@ impl McpsmClientHandler {
             tool_refresh_tx,
             resource_refresh_tx,
             prompt_refresh_tx,
+            logging_message_tx,
         }
     }
 }
@@ -70,6 +73,20 @@ impl ClientHandler for McpsmClientHandler {
         );
         let _ = self.prompt_refresh_tx.send(self.server_id.clone());
     }
+
+    async fn on_logging_message(
+        &self,
+        params: LoggingMessageNotificationParam,
+        _context: NotificationContext<RoleClient>,
+    ) {
+        tracing::debug!(
+            "[{}] Received logging message: level={:?} logger={:?}",
+            self.server_id,
+            params.level,
+            params.logger
+        );
+        let _ = self.logging_message_tx.send((self.server_id.clone(), params));
+    }
 }
 
 /// A running MCP client service with our custom handler.
@@ -97,6 +114,7 @@ pub async fn connect_stdio(
     tool_refresh_tx: tokio::sync::mpsc::UnboundedSender<String>,
     resource_refresh_tx: tokio::sync::mpsc::UnboundedSender<String>,
     prompt_refresh_tx: tokio::sync::mpsc::UnboundedSender<String>,
+    logging_message_tx: tokio::sync::mpsc::UnboundedSender<(String, LoggingMessageNotificationParam)>,
 ) -> anyhow::Result<StdioConnection> {
     let command = config.command.as_deref()
         .ok_or_else(|| anyhow::anyhow!("No command specified for stdio server"))?;
@@ -124,7 +142,7 @@ pub async fn connect_stdio(
 
     // (ChildStdout, ChildStdin) implements IntoTransport<RoleClient, ...>
     // rmcp's serve() performs the MCP initialize handshake automatically
-    let handler = McpsmClientHandler::new(server_id.to_string(), tool_refresh_tx, resource_refresh_tx, prompt_refresh_tx);
+    let handler = McpsmClientHandler::new(server_id.to_string(), tool_refresh_tx, resource_refresh_tx, prompt_refresh_tx, logging_message_tx);
 
     let client = handler.serve((stdout, stdin)).await?;
 
@@ -143,6 +161,7 @@ pub async fn connect_http(
     tool_refresh_tx: tokio::sync::mpsc::UnboundedSender<String>,
     resource_refresh_tx: tokio::sync::mpsc::UnboundedSender<String>,
     prompt_refresh_tx: tokio::sync::mpsc::UnboundedSender<String>,
+    logging_message_tx: tokio::sync::mpsc::UnboundedSender<(String, LoggingMessageNotificationParam)>,
 ) -> anyhow::Result<McpClient> {
     use rmcp::transport::streamable_http_client::{
         StreamableHttpClientTransport, StreamableHttpClientTransportConfig,
@@ -156,7 +175,7 @@ pub async fn connect_http(
     };
     let transport = StreamableHttpClientTransport::from_config(config);
 
-    let handler = McpsmClientHandler::new(server_id.to_string(), tool_refresh_tx, resource_refresh_tx, prompt_refresh_tx);
+    let handler = McpsmClientHandler::new(server_id.to_string(), tool_refresh_tx, resource_refresh_tx, prompt_refresh_tx, logging_message_tx);
 
     let client = handler.serve(transport).await?;
     Ok(client)
@@ -225,4 +244,14 @@ pub async fn get_prompt(
     }
     let result = client.get_prompt(params).await?;
     Ok(result)
+}
+
+/// Set the logging level on a connected MCP server.
+pub async fn set_logging_level(
+    client: &McpClient,
+    level: rmcp::model::LoggingLevel,
+) -> anyhow::Result<()> {
+    let params = SetLevelRequestParams::new(level);
+    client.set_level(params).await?;
+    Ok(())
 }

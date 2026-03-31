@@ -1,4 +1,4 @@
-use crate::core::server::{PromptInfo, ResourceInfo, ResourceTemplateInfo, ServerConfig, ServerStatus, ToolInfo};
+use crate::core::server::{LoggingMessageInfo, PromptInfo, ResourceInfo, ResourceTemplateInfo, ServerConfig, ServerStatus, ToolInfo};
 use serde::Serialize;
 
 /// Commands sent from the GUI/web to the backend.
@@ -16,6 +16,7 @@ pub enum AppCommand {
     LoadConfig,
     SaveConfig,
     ReloadConfigIfChanged,
+    SetLoggingLevel { id: String, level: String },
     RequestLogs { id: String },
     ClearLogs { id: String },
     Shutdown,
@@ -38,6 +39,14 @@ pub enum BackendEvent {
     McpPromptsChanged {
         id: String,
         prompts: Vec<PromptInfo>,
+    },
+    McpLoggingMessage {
+        id: String,
+        message: LoggingMessageInfo,
+    },
+    McpLoggingLevelChanged {
+        id: String,
+        level: String,
     },
     McpServerReady { id: String },
     Error { message: String },

@@ -31,6 +31,10 @@ pub fn build_router(state: Arc<AppState>, proxy_handler: ProxyHandler) -> Router
         .route("/api/servers/{id}/logs", get(handlers::get_logs))
         .route("/api/servers/{id}/logs", delete(handlers::clear_logs))
         .route(
+            "/api/servers/{id}/log-level",
+            post(handlers::set_log_level),
+        )
+        .route(
             "/api/servers/{id}/disabled",
             post(handlers::set_disabled),
         )
