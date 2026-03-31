@@ -1186,7 +1186,10 @@ function Sidebar() {
 // Server Detail Components
 // ---------------------------------------------------------------------------
 function ConfigSection({ server }) {
+  const peerInfo = server.peer_info || {};
   const hasPeer = !!server.peer_info;
+  const { title, description, instructions } = peerInfo;
+  const showSeparator = !!(title || description || instructions);
   const envCount = Object.keys(server.config.env || {}).length;
   return html`<div class="config-details">
     <div class="config-row">
@@ -1201,23 +1204,25 @@ function ConfigSection({ server }) {
       `}
     </div>
     ${hasPeer && html`
-      <div class="config-sep"></div>
-      ${server.peer_info.title && html`
+      ${showSeparator && html`
+        <div class="config-sep"></div>
+      `}
+      ${title && html`
         <div class="config-row">
           <span class="config-label">Title</span>
-          <span style="color:var(--text)">${server.peer_info.title}</span>
+          <span style="color:var(--text)">${title}</span>
         </div>
       `}
-      ${server.peer_info.description && html`
+      ${description && html`
         <div class="config-row">
           <span class="config-label">About</span>
-          <span style="color:var(--text)">${server.peer_info.description}</span>
+          <span style="color:var(--text)">${description}</span>
         </div>
       `}
-      ${server.peer_info.instructions && html`
+      ${instructions && html`
         <div class="config-row" style="align-items:flex-start">
           <span class="config-label">Instructions</span>
-          <span class="config-value" style="white-space:pre-wrap">${server.peer_info.instructions}</span>
+          <span class="config-value" style="white-space:pre-wrap">${instructions}</span>
         </div>
       `}
     `}
