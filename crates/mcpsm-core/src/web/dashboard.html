@@ -1790,10 +1790,22 @@ function ServerModal() {
     const t = templates.value.find(x => x.name === name);
     if (!t) return;
     setServerId(name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9_-]/g, ''));
-    setTransport('stdio');
-    setCommand(t.config.command || '');
-    setArgs((t.config.args || []).join('\n'));
-    setEnv(Object.entries(t.config.env || {}).map(([k,v]) => k + '=' + v).join('\n'));
+    if (t.config.url) {
+      setTransport('http');
+      setUrl(t.config.url);
+      setAuthHeader(t.config.auth_header || '');
+      setCommand('');
+      setArgs('');
+      setEnv('');
+    } else {
+      setTransport('stdio');
+      setCommand(t.config.command || '');
+      setArgs((t.config.args || []).join('\n'));
+      setEnv(Object.entries(t.config.env || {}).map(([k,v]) => k + '=' + v).join('\n'));
+      setUrl('');
+      setAuthHeader('');
+    }
+    setErrors({});
   }, []);
 
   const submit = useCallback(async () => {
