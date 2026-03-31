@@ -8,8 +8,8 @@ use crate::core::config;
 use crate::core::log_buffer::LogBuffer;
 use crate::core::process;
 use crate::core::server::{
-    McpCapabilities, McpPeerInfo, ResourceInfo, ResourceTemplateInfo, ServerConfig, ServerStatus,
-    ToolAnnotationInfo, ToolInfo,
+    McpCapabilities, McpPeerInfo, PromptArgumentInfo, PromptInfo, ResourceInfo,
+    ResourceTemplateInfo, ServerConfig, ServerStatus, ToolAnnotationInfo, ToolInfo,
 };
 use crate::mcp::client::{self, McpClient};
 
@@ -21,6 +21,7 @@ pub struct ServerInfo {
     pub tools: Vec<ToolInfo>,
     pub resources: Vec<ResourceInfo>,
     pub resource_templates: Vec<ResourceTemplateInfo>,
+    pub prompts: Vec<PromptInfo>,
     pub disabled: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub peer_info: Option<McpPeerInfo>,
@@ -51,6 +52,9 @@ pub struct ServerManager {
     /// Channel for receiving resource refresh requests from MCP `notifications/resources/list_changed`.
     resource_refresh_tx: tokio::sync::mpsc::UnboundedSender<String>,
     resource_refresh_rx: tokio::sync::mpsc::UnboundedReceiver<String>,
+    /// Channel for receiving prompt refresh requests from MCP `notifications/prompts/list_changed`.
+    prompt_refresh_tx: tokio::sync::mpsc::UnboundedSender<String>,
+    prompt_refresh_rx: tokio::sync::mpsc::UnboundedReceiver<String>,
     /// Watch channel to signal the proxy when tool lists change.
     tool_change_tx: tokio::sync::watch::Sender<()>,
     /// Port the web server is running on (persisted in config saves).
@@ -69,6 +73,7 @@ struct ManagedServer {
     tools: Vec<ToolInfo>,
     resources: Vec<ResourceInfo>,
     resource_templates: Vec<ResourceTemplateInfo>,
+    prompts: Vec<PromptInfo>,
     peer_info: Option<McpPeerInfo>,
     logs: LogBuffer,
     child: Option<tokio::process::Child>,
@@ -87,6 +92,7 @@ struct ConnectSuccess {
     tools: Vec<ToolInfo>,
     resources: Vec<ResourceInfo>,
     resource_templates: Vec<ResourceTemplateInfo>,
+    prompts: Vec<PromptInfo>,
     peer_info: Option<McpPeerInfo>,
 }
 
@@ -157,6 +163,29 @@ fn resource_template_to_info(template: &rmcp::model::ResourceTemplate) -> Resour
     }
 }
 
+/// Convert rmcp Prompt to our PromptInfo.
+fn prompt_to_info(prompt: &rmcp::model::Prompt) -> PromptInfo {
+    PromptInfo {
+        name: prompt.name.to_string(),
+        title: prompt.title.as_ref().map(|t| t.to_string()),
+        description: prompt.description.as_ref().map(|d| d.to_string()),
+        arguments: prompt
+            .arguments
+            .as_ref()
+            .map(|args| {
+                args.iter()
+                    .map(|a| PromptArgumentInfo {
+                        name: a.name.to_string(),
+                        title: a.title.as_ref().map(|t| t.to_string()),
+                        description: a.description.as_ref().map(|d| d.to_string()),
+                        required: a.required.unwrap_or(false),
+                    })
+                    .collect()
+            })
+            .unwrap_or_default(),
+    }
+}
+
 impl ServerManager {
     pub fn new(
         cmd_rx: tokio::sync::mpsc::UnboundedReceiver<AppCommand>,
@@ -171,6 +200,7 @@ impl ServerManager {
         let (connect_result_tx, connect_result_rx) = tokio::sync::mpsc::unbounded_channel();
         let (tool_refresh_tx, tool_refresh_rx) = tokio::sync::mpsc::unbounded_channel();
         let (resource_refresh_tx, resource_refresh_rx) = tokio::sync::mpsc::unbounded_channel();
+        let (prompt_refresh_tx, prompt_refresh_rx) = tokio::sync::mpsc::unbounded_channel();
         let mut health_check_interval =
             tokio::time::interval(std::time::Duration::from_secs(30));
         health_check_interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
@@ -188,6 +218,8 @@ impl ServerManager {
             tool_refresh_rx,
             resource_refresh_tx,
             resource_refresh_rx,
+            prompt_refresh_tx,
+            prompt_refresh_rx,
             tool_change_tx,
             port,
             last_save_instant: std::time::Instant::now()
@@ -232,6 +264,11 @@ impl ServerManager {
                 server_id = self.resource_refresh_rx.recv() => {
                     if let Some(id) = server_id {
                         self.handle_resource_refresh(&id).await;
+                    }
+                }
+                server_id = self.prompt_refresh_rx.recv() => {
+                    if let Some(id) = server_id {
+                        self.handle_prompt_refresh(&id).await;
                     }
                 }
                 _ = self.health_check_interval.tick() => {
@@ -334,6 +371,7 @@ impl ServerManager {
                     server.tools = success.tools.clone();
                     server.resources = success.resources.clone();
                     server.resource_templates = success.resource_templates.clone();
+                    server.prompts = success.prompts.clone();
                     server.peer_info = success.peer_info.clone();
                     server.status = ServerStatus::Ready { pid: success.pid };
                     server.child = success.child;
@@ -372,6 +410,15 @@ impl ServerManager {
                             },
                         );
                     }
+                    if !success.prompts.is_empty() {
+                        send(
+                            &self.evt_tx,
+                            BackendEvent::McpPromptsChanged {
+                                id: id.clone(),
+                                prompts: success.prompts.clone(),
+                            },
+                        );
+                    }
                     send(
                         &self.evt_tx,
                         BackendEvent::McpServerReady { id: id.clone() },
@@ -388,23 +435,26 @@ impl ServerManager {
                         );
                     }
                     let resource_count = success.resources.len() + success.resource_templates.len();
+                    let prompt_count = success.prompts.len();
                     if let Some(pid_val) = pid {
                         self.push_log(
                             &id,
                             format!(
-                                "[mcpsm] Server ready (PID {}), {} tools, {} resources discovered",
+                                "[mcpsm] Server ready (PID {}), {} tools, {} resources, {} prompts discovered",
                                 pid_val,
                                 success.tools.len(),
-                                resource_count
+                                resource_count,
+                                prompt_count
                             ),
                         );
                     } else {
                         self.push_log(
                             &id,
                             format!(
-                                "[mcpsm] Server ready (remote), {} tools, {} resources discovered",
+                                "[mcpsm] Server ready (remote), {} tools, {} resources, {} prompts discovered",
                                 success.tools.len(),
-                                resource_count
+                                resource_count,
+                                prompt_count
                             ),
                         );
                     }
@@ -450,6 +500,7 @@ impl ServerManager {
                             tools: Vec::new(),
                             resources: Vec::new(),
                             resource_templates: Vec::new(),
+                            prompts: Vec::new(),
                             peer_info: None,
                             logs: LogBuffer::new(),
                             child: None,
@@ -577,6 +628,7 @@ impl ServerManager {
                         tools: Vec::new(),
                         resources: Vec::new(),
                         resource_templates: Vec::new(),
+                        prompts: Vec::new(),
                         peer_info: None,
                         logs: LogBuffer::new(),
                         child: None,
@@ -606,6 +658,7 @@ impl ServerManager {
                 tools: Vec::new(),
                 resources: Vec::new(),
                 resource_templates: Vec::new(),
+                prompts: Vec::new(),
                 peer_info: None,
                 logs: LogBuffer::new(),
                 child: None,
@@ -707,6 +760,7 @@ impl ServerManager {
             server.tools.clear();
             server.resources.clear();
             server.resource_templates.clear();
+            server.prompts.clear();
             server.peer_info = None;
         }
         self.sync_shared_state().await;
@@ -778,6 +832,7 @@ impl ServerManager {
         let shell_env = self.shell_env.clone();
         let tool_refresh_tx = self.tool_refresh_tx.clone();
         let resource_refresh_tx = self.resource_refresh_tx.clone();
+        let prompt_refresh_tx = self.prompt_refresh_tx.clone();
 
         tokio::spawn(async move {
             let result = async {
@@ -787,6 +842,7 @@ impl ServerManager {
                     &id_owned,
                     tool_refresh_tx,
                     resource_refresh_tx,
+                    prompt_refresh_tx,
                 )
                 .await
                 .map_err(|e| format!("Failed to connect: {}", e))?;
@@ -825,6 +881,19 @@ impl ServerManager {
                     (Vec::new(), Vec::new())
                 };
 
+                // List prompts if capability is advertised
+                let has_prompts = peer_info.as_ref().is_some_and(|p| p.capabilities.prompts);
+                let prompt_infos = if has_prompts {
+                    client::list_prompts(&conn.client)
+                        .await
+                        .unwrap_or_default()
+                        .iter()
+                        .map(|p| prompt_to_info(p))
+                        .collect()
+                } else {
+                    Vec::new()
+                };
+
                 Ok(ConnectSuccess {
                     client: Arc::new(conn.client),
                     child: conn.child,
@@ -832,6 +901,7 @@ impl ServerManager {
                     tools: tool_infos,
                     resources: resource_infos,
                     resource_templates: resource_template_infos,
+                    prompts: prompt_infos,
                     peer_info,
                 })
             }
@@ -851,6 +921,7 @@ impl ServerManager {
         let connect_result_tx = self.connect_result_tx.clone();
         let tool_refresh_tx = self.tool_refresh_tx.clone();
         let resource_refresh_tx = self.resource_refresh_tx.clone();
+        let prompt_refresh_tx = self.prompt_refresh_tx.clone();
 
         tokio::spawn(async move {
             let result = async {
@@ -860,6 +931,7 @@ impl ServerManager {
                     &id_owned,
                     tool_refresh_tx,
                     resource_refresh_tx,
+                    prompt_refresh_tx,
                 )
                 .await
                 .map_err(|e| format!("Failed to connect: {}", e))?;
@@ -890,6 +962,19 @@ impl ServerManager {
                     (Vec::new(), Vec::new())
                 };
 
+                // List prompts if capability is advertised
+                let has_prompts = peer_info.as_ref().is_some_and(|p| p.capabilities.prompts);
+                let prompt_infos = if has_prompts {
+                    client::list_prompts(&mcp_client)
+                        .await
+                        .unwrap_or_default()
+                        .iter()
+                        .map(|p| prompt_to_info(p))
+                        .collect()
+                } else {
+                    Vec::new()
+                };
+
                 Ok(ConnectSuccess {
                     client: Arc::new(mcp_client),
                     child: None,
@@ -897,6 +982,7 @@ impl ServerManager {
                     tools: tool_infos,
                     resources: resource_infos,
                     resource_templates: resource_template_infos,
+                    prompts: prompt_infos,
                     peer_info,
                 })
             }
@@ -949,6 +1035,7 @@ impl ServerManager {
             server.tools.clear();
             server.resources.clear();
             server.resource_templates.clear();
+            server.prompts.clear();
             server.peer_info = None;
             server.status = ServerStatus::Stopped;
         }
@@ -1007,6 +1094,7 @@ impl ServerManager {
             server.tools.clear();
             server.resources.clear();
             server.resource_templates.clear();
+            server.prompts.clear();
             server.peer_info = None;
 
             to_start.push((id.clone(), server.config.clone()));
@@ -1283,6 +1371,67 @@ impl ServerManager {
         tracing::info!("[{}] Resource list refreshed: {} resources", id, count);
     }
 
+    /// Handle a `notifications/prompts/list_changed` from a child MCP server.
+    /// Re-fetches the prompt list and updates shared state + dashboard.
+    async fn handle_prompt_refresh(&mut self, id: &str) {
+        let is_ready = self
+            .servers
+            .get(id)
+            .is_some_and(|s| matches!(s.status, ServerStatus::Ready { .. }));
+        if !is_ready {
+            return;
+        }
+
+        let client = {
+            let clients = self.shared_mcp_clients.read().await;
+            match clients.get(id) {
+                Some(c) => Arc::clone(c),
+                None => return,
+            }
+        };
+
+        self.push_log(
+            id,
+            "[mcpsm] Received prompts/list_changed, refreshing prompt list...".to_string(),
+        );
+
+        match client::list_prompts(&client).await {
+            Ok(prompts) => {
+                let prompt_infos: Vec<PromptInfo> =
+                    prompts.iter().map(|p| prompt_to_info(p)).collect();
+                let count = prompt_infos.len();
+
+                if let Some(server) = self.servers.get_mut(id) {
+                    server.prompts = prompt_infos.clone();
+                }
+
+                self.sync_shared_state().await;
+
+                send(
+                    &self.evt_tx,
+                    BackendEvent::McpPromptsChanged {
+                        id: id.to_string(),
+                        prompts: prompt_infos,
+                    },
+                );
+
+                self.push_log(
+                    id,
+                    format!("[mcpsm] Prompt list refreshed: {} prompts", count),
+                );
+
+                tracing::info!("[{}] Prompt list refreshed: {} prompts", id, count);
+            }
+            Err(e) => {
+                tracing::warn!("[{}] Failed to refresh prompt list: {}", id, e);
+                self.push_log(
+                    id,
+                    format!("[mcpsm] Failed to refresh prompt list: {}", e),
+                );
+            }
+        }
+    }
+
     fn handle_request_logs(&self, id: &str) {
         if let Some(server) = self.servers.get(id) {
             send(
@@ -1336,6 +1485,7 @@ impl ServerManager {
                         tools: s.tools.clone(),
                         resources: s.resources.clone(),
                         resource_templates: s.resource_templates.clone(),
+                        prompts: s.prompts.clone(),
                         disabled: s.config.disabled,
                         peer_info: s.peer_info.clone(),
                     },

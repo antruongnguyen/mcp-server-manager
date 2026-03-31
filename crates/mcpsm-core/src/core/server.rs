@@ -138,3 +138,23 @@ pub struct ResourceTemplateInfo {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub mime_type: Option<String>,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PromptInfo {
+    pub name: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub title: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+    pub arguments: Vec<PromptArgumentInfo>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PromptArgumentInfo {
+    pub name: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub title: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+    pub required: bool,
+}

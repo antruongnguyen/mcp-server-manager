@@ -1,4 +1,4 @@
-use crate::core::server::{ResourceInfo, ResourceTemplateInfo, ServerConfig, ServerStatus, ToolInfo};
+use crate::core::server::{PromptInfo, ResourceInfo, ResourceTemplateInfo, ServerConfig, ServerStatus, ToolInfo};
 use serde::Serialize;
 
 /// Commands sent from the GUI/web to the backend.
@@ -34,6 +34,10 @@ pub enum BackendEvent {
         id: String,
         resources: Vec<ResourceInfo>,
         resource_templates: Vec<ResourceTemplateInfo>,
+    },
+    McpPromptsChanged {
+        id: String,
+        prompts: Vec<PromptInfo>,
     },
     McpServerReady { id: String },
     Error { message: String },

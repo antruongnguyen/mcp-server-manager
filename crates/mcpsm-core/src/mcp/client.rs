@@ -3,8 +3,9 @@ use std::process::Stdio;
 
 use rmcp::handler::client::ClientHandler;
 use rmcp::model::{
-    CallToolRequestParams, CallToolResult, ClientInfo, Implementation, ReadResourceRequestParams,
-    ReadResourceResult, Resource, ResourceTemplate, ServerInfo, Tool,
+    CallToolRequestParams, CallToolResult, ClientInfo, GetPromptRequestParams, GetPromptResult,
+    Implementation, Prompt, ReadResourceRequestParams, ReadResourceResult, Resource,
+    ResourceTemplate, ServerInfo, Tool,
 };
 use rmcp::service::{NotificationContext, RunningService};
 use rmcp::{RoleClient, ServiceExt};
@@ -18,6 +19,7 @@ pub struct McpsmClientHandler {
     server_id: String,
     tool_refresh_tx: tokio::sync::mpsc::UnboundedSender<String>,
     resource_refresh_tx: tokio::sync::mpsc::UnboundedSender<String>,
+    prompt_refresh_tx: tokio::sync::mpsc::UnboundedSender<String>,
 }
 
 impl McpsmClientHandler {
@@ -25,6 +27,7 @@ impl McpsmClientHandler {
         server_id: String,
         tool_refresh_tx: tokio::sync::mpsc::UnboundedSender<String>,
         resource_refresh_tx: tokio::sync::mpsc::UnboundedSender<String>,
+        prompt_refresh_tx: tokio::sync::mpsc::UnboundedSender<String>,
     ) -> Self {
         Self {
             client_info: ClientInfo::new(
@@ -34,6 +37,7 @@ impl McpsmClientHandler {
             server_id,
             tool_refresh_tx,
             resource_refresh_tx,
+            prompt_refresh_tx,
         }
     }
 }
@@ -57,6 +61,14 @@ impl ClientHandler for McpsmClientHandler {
             self.server_id
         );
         let _ = self.resource_refresh_tx.send(self.server_id.clone());
+    }
+
+    async fn on_prompt_list_changed(&self, _context: NotificationContext<RoleClient>) {
+        tracing::info!(
+            "[{}] Received prompts/list_changed notification",
+            self.server_id
+        );
+        let _ = self.prompt_refresh_tx.send(self.server_id.clone());
     }
 }
 
@@ -84,6 +96,7 @@ pub async fn connect_stdio(
     server_id: &str,
     tool_refresh_tx: tokio::sync::mpsc::UnboundedSender<String>,
     resource_refresh_tx: tokio::sync::mpsc::UnboundedSender<String>,
+    prompt_refresh_tx: tokio::sync::mpsc::UnboundedSender<String>,
 ) -> anyhow::Result<StdioConnection> {
     let command = config.command.as_deref()
         .ok_or_else(|| anyhow::anyhow!("No command specified for stdio server"))?;
@@ -111,7 +124,7 @@ pub async fn connect_stdio(
 
     // (ChildStdout, ChildStdin) implements IntoTransport<RoleClient, ...>
     // rmcp's serve() performs the MCP initialize handshake automatically
-    let handler = McpsmClientHandler::new(server_id.to_string(), tool_refresh_tx, resource_refresh_tx);
+    let handler = McpsmClientHandler::new(server_id.to_string(), tool_refresh_tx, resource_refresh_tx, prompt_refresh_tx);
 
     let client = handler.serve((stdout, stdin)).await?;
 
@@ -129,6 +142,7 @@ pub async fn connect_http(
     server_id: &str,
     tool_refresh_tx: tokio::sync::mpsc::UnboundedSender<String>,
     resource_refresh_tx: tokio::sync::mpsc::UnboundedSender<String>,
+    prompt_refresh_tx: tokio::sync::mpsc::UnboundedSender<String>,
 ) -> anyhow::Result<McpClient> {
     use rmcp::transport::streamable_http_client::{
         StreamableHttpClientTransport, StreamableHttpClientTransportConfig,
@@ -142,7 +156,7 @@ pub async fn connect_http(
     };
     let transport = StreamableHttpClientTransport::from_config(config);
 
-    let handler = McpsmClientHandler::new(server_id.to_string(), tool_refresh_tx, resource_refresh_tx);
+    let handler = McpsmClientHandler::new(server_id.to_string(), tool_refresh_tx, resource_refresh_tx, prompt_refresh_tx);
 
     let client = handler.serve(transport).await?;
     Ok(client)
@@ -190,5 +204,25 @@ pub async fn list_resource_templates(client: &McpClient) -> anyhow::Result<Vec<R
 pub async fn read_resource(client: &McpClient, uri: String) -> anyhow::Result<ReadResourceResult> {
     let params = ReadResourceRequestParams::new(uri);
     let result = client.read_resource(params).await?;
+    Ok(result)
+}
+
+/// List all prompts from a connected MCP client.
+pub async fn list_prompts(client: &McpClient) -> anyhow::Result<Vec<Prompt>> {
+    let prompts = client.list_all_prompts().await?;
+    Ok(prompts)
+}
+
+/// Get a specific prompt by name from a connected MCP client.
+pub async fn get_prompt(
+    client: &McpClient,
+    name: String,
+    arguments: Option<serde_json::Map<String, serde_json::Value>>,
+) -> anyhow::Result<GetPromptResult> {
+    let mut params = GetPromptRequestParams::new(name);
+    if let Some(args) = arguments {
+        params.arguments = Some(args);
+    }
+    let result = client.get_prompt(params).await?;
     Ok(result)
 }
