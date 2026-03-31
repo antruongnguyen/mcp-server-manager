@@ -749,6 +749,14 @@ async function apiRestartAll() {
   }, 2000);
 }
 
+async function apiSetLogLevel(id, level) {
+  await fetch('/api/servers/' + encodeURIComponent(id) + '/log-level', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ level }),
+  });
+}
+
 // ---------------------------------------------------------------------------
 // SSE Connection
 // ---------------------------------------------------------------------------
@@ -1288,6 +1296,65 @@ function PromptsPanel({ prompts }) {
   </div>`;
 }
 
+const LOG_LEVELS = ['debug', 'info', 'notice', 'warning', 'error', 'critical', 'alert', 'emergency'];
+const LOG_LEVEL_COLORS = {
+  debug: 'var(--text2)', info: 'var(--blue)', notice: 'var(--blue)',
+  warning: 'var(--yellow)', error: 'var(--red)', critical: 'var(--red)',
+  alert: 'var(--red)', emergency: 'var(--red)',
+};
+
+function LoggingPanel({ id, server }) {
+  const logging = server.logging || {};
+  const currentLevel = logging.current_level || 'warning';
+  const viewerRef = useRef(null);
+  const [autoScroll, setAutoScroll] = useState(true);
+
+  // Filter MCP log messages from the log stream
+  const allLines = logs.value[id] || [];
+  const mcpLines = useMemo(() => allLines.filter(l => l.includes('[mcp]')), [allLines]);
+
+  useEffect(() => {
+    if (autoScroll && viewerRef.current) {
+      viewerRef.current.scrollTop = viewerRef.current.scrollHeight;
+    }
+  }, [autoScroll, mcpLines.length]);
+
+  const handleLevelChange = useCallback(async (level) => {
+    await apiSetLogLevel(id, level);
+    // Optimistically update; backend will confirm via SSE
+    if (servers.value[id]) {
+      const cur = servers.value[id];
+      servers.value = { ...servers.value, [id]: { ...cur, logging: { ...cur.logging, current_level: level } } };
+    }
+  }, [id]);
+
+  return html`<div style="display:flex;flex-direction:column;height:100%">
+    <div style="padding:10px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+      <span style="font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:0.5px">Log Level</span>
+      <div style="display:flex;gap:0;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden">
+        ${LOG_LEVELS.map(level => html`
+          <button key=${level} onClick=${() => handleLevelChange(level)}
+            style="padding:3px 8px;font-size:10px;font-weight:500;border:none;cursor:pointer;font-family:inherit;transition:all 0.15s;
+              background:${level === currentLevel ? 'var(--accent)' : 'var(--surface2)'};
+              color:${level === currentLevel ? '#fff' : 'var(--text2)'};
+              ${level !== LOG_LEVELS[LOG_LEVELS.length - 1] ? 'border-right:1px solid var(--border);' : ''}"
+          >${level}</button>
+        `)}
+      </div>
+      <label style="display:flex;align-items:center;gap:4px;margin-left:auto;font-size:11px;color:var(--text2);cursor:pointer;user-select:none">
+        <input type="checkbox" checked=${autoScroll} onChange=${(e) => setAutoScroll(e.target.checked)} style="margin:0" />
+        Auto-scroll
+      </label>
+    </div>
+    <div ref=${viewerRef} style="flex:1;overflow-y:auto;padding:8px 20px;font-family:'SF Mono','Menlo','Consolas',monospace;font-size:12px;line-height:1.6;background:var(--bg)">
+      ${mcpLines.length === 0
+        ? html`<div style="text-align:center;padding:24px;color:var(--text2);font-family:inherit;font-size:12px">No MCP log messages yet</div>`
+        : mcpLines.map((l, i) => html`<div key=${i} style="white-space:pre-wrap;word-break:break-all;color:var(--text);opacity:0.85">${l}</div>`)
+      }
+    </div>
+  </div>`;
+}
+
 function TabBar({ server }) {
   const caps = server.peer_info ? server.peer_info.capabilities : null;
   const tools = server.tools || [];
@@ -1313,6 +1380,7 @@ function TabBar({ server }) {
 
 function TabContent({ server }) {
   const tab = activeTab.value;
+  const id = selectedId.value;
   if (tab === 'tools') {
     return html`<div class="tab-content"><${ToolsPanel} tools=${server.tools || []} /></div>`;
   }
@@ -1321,6 +1389,9 @@ function TabContent({ server }) {
   }
   if (tab === 'prompts') {
     return html`<div class="tab-content"><${PromptsPanel} prompts=${server.prompts || []} /></div>`;
+  }
+  if (tab === 'logging') {
+    return html`<div class="tab-content"><${LoggingPanel} id=${id} server=${server} /></div>`;
   }
   return html`<div class="tab-content"><div class="tab-placeholder">Not yet implemented</div></div>`;
 }
