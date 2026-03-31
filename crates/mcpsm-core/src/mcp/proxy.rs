@@ -3,8 +3,10 @@ use std::sync::Arc;
 
 use rmcp::handler::server::ServerHandler;
 use rmcp::model::{
-    CallToolRequestParams, CallToolResult, Content, GetPromptRequestParams, GetPromptResult,
-    Implementation, ListPromptsResult, ListToolsResult, PaginatedRequestParams, Prompt,
+    Annotated, CallToolRequestParams, CallToolResult, Content, GetPromptRequestParams,
+    GetPromptResult, Implementation, ListPromptsResult, ListResourceTemplatesResult,
+    ListResourcesResult, ListToolsResult, PaginatedRequestParams, Prompt, RawResource,
+    RawResourceTemplate, ReadResourceRequestParams, ReadResourceResult, Resource, ResourceTemplate,
     ServerCapabilities, ServerInfo, SetLevelRequestParams, Tool,
 };
 use rmcp::service::RequestContext;
@@ -35,11 +37,12 @@ impl ProxyHandler {
 impl ServerHandler for ProxyHandler {
     fn get_info(&self) -> ServerInfo {
         // Capabilities are static at construction time; tools are always enabled.
-        // Prompts and logging are also always advertised — the handlers return
+        // Prompts, resources, and logging are also always advertised — the handlers return
         // empty results or no-op when no child supports them, which is spec-compliant.
         ServerInfo::new(
             ServerCapabilities::builder()
                 .enable_tools()
+                .enable_resources()
                 .enable_prompts()
                 .enable_logging()
                 .build(),
@@ -148,6 +151,172 @@ impl ServerHandler for ProxyHandler {
                 Ok(CallToolResult::error(vec![Content::text(format!("Error calling tool: {}", e))]))
             }
         }
+    }
+
+    async fn list_resources(
+        &self,
+        _request: Option<PaginatedRequestParams>,
+        _context: RequestContext<RoleServer>,
+    ) -> Result<ListResourcesResult, McpError> {
+        let clients = self.clients.read().await;
+        let servers = self.servers.read().await;
+
+        let mut all_resources: Vec<Resource> = Vec::new();
+
+        for (server_id, client) in clients.iter() {
+            // Only include resources from Ready servers that advertise resources capability
+            let has_resources = servers.get(server_id).is_some_and(|s| {
+                matches!(s.status, ServerStatus::Ready { .. })
+                    && s.peer_info
+                        .as_ref()
+                        .is_some_and(|p| p.capabilities.resources)
+            });
+
+            if !has_resources {
+                continue;
+            }
+
+            match client.list_all_resources().await {
+                Ok(resources) => {
+                    for resource in resources {
+                        let namespaced_uri =
+                            format!("{}{}{}", server_id, NAMESPACE_SEP, resource.raw.uri);
+                        let description = resource
+                            .raw
+                            .description
+                            .map(|d| format!("[{}] {}", server_id, d));
+                        let mut raw = RawResource::new(namespaced_uri, resource.raw.name);
+                        if let Some(title) = resource.raw.title {
+                            raw = raw.with_title(title);
+                        }
+                        if let Some(desc) = description {
+                            raw = raw.with_description(desc);
+                        }
+                        if let Some(mime) = resource.raw.mime_type {
+                            raw = raw.with_mime_type(mime);
+                        }
+                        all_resources.push(Annotated::new(raw, resource.annotations));
+                    }
+                }
+                Err(e) => {
+                    tracing::warn!("[{}] Failed to list resources in proxy: {}", server_id, e);
+                }
+            }
+        }
+
+        Ok(ListResourcesResult {
+            resources: all_resources,
+            next_cursor: None,
+            meta: None,
+        })
+    }
+
+    async fn list_resource_templates(
+        &self,
+        _request: Option<PaginatedRequestParams>,
+        _context: RequestContext<RoleServer>,
+    ) -> Result<ListResourceTemplatesResult, McpError> {
+        let clients = self.clients.read().await;
+        let servers = self.servers.read().await;
+
+        let mut all_templates: Vec<ResourceTemplate> = Vec::new();
+
+        for (server_id, client) in clients.iter() {
+            let has_resources = servers.get(server_id).is_some_and(|s| {
+                matches!(s.status, ServerStatus::Ready { .. })
+                    && s.peer_info
+                        .as_ref()
+                        .is_some_and(|p| p.capabilities.resources)
+            });
+
+            if !has_resources {
+                continue;
+            }
+
+            match client.list_all_resource_templates().await {
+                Ok(templates) => {
+                    for template in templates {
+                        let namespaced_uri = format!(
+                            "{}{}{}",
+                            server_id, NAMESPACE_SEP, template.raw.uri_template
+                        );
+                        let description = template
+                            .raw
+                            .description
+                            .map(|d| format!("[{}] {}", server_id, d));
+                        let mut raw =
+                            RawResourceTemplate::new(namespaced_uri, template.raw.name);
+                        if let Some(title) = template.raw.title {
+                            raw = raw.with_title(title);
+                        }
+                        if let Some(desc) = description {
+                            raw = raw.with_description(desc);
+                        }
+                        if let Some(mime) = template.raw.mime_type {
+                            raw = raw.with_mime_type(mime);
+                        }
+                        all_templates.push(Annotated::new(raw, template.annotations));
+                    }
+                }
+                Err(e) => {
+                    tracing::warn!(
+                        "[{}] Failed to list resource templates in proxy: {}",
+                        server_id,
+                        e
+                    );
+                }
+            }
+        }
+
+        Ok(ListResourceTemplatesResult {
+            resource_templates: all_templates,
+            next_cursor: None,
+            meta: None,
+        })
+    }
+
+    async fn read_resource(
+        &self,
+        request: ReadResourceRequestParams,
+        _context: RequestContext<RoleServer>,
+    ) -> Result<ReadResourceResult, McpError> {
+        let uri_str: &str = &request.uri;
+
+        // Split namespaced URI: "server_id__original_uri"
+        let (server_id, original_uri) = match uri_str.split_once(NAMESPACE_SEP) {
+            Some((sid, uri)) => (sid.to_string(), uri.to_string()),
+            None => {
+                return Err(McpError::invalid_params(
+                    format!(
+                        "Resource URI must be namespaced as 'server_id{}uri', got: {}",
+                        NAMESPACE_SEP, uri_str
+                    ),
+                    None,
+                ));
+            }
+        };
+
+        // Look up the client
+        let client = {
+            let clients = self.clients.read().await;
+            match clients.get(&server_id) {
+                Some(c) => Arc::clone(c),
+                None => {
+                    return Err(McpError::invalid_params(
+                        format!("Server '{}' not found or not ready", server_id),
+                        None,
+                    ));
+                }
+            }
+        };
+
+        let child_params = ReadResourceRequestParams::new(original_uri);
+        client.read_resource(child_params).await.map_err(|e| {
+            McpError::internal_error(
+                format!("Error reading resource from '{}': {}", server_id, e),
+                None,
+            )
+        })
     }
 
     async fn list_prompts(
