@@ -43,23 +43,23 @@ pub struct ServerManager {
     shared_mcp_clients: SharedMcpClients,
     servers: HashMap<String, ManagedServer>,
     /// Channel for receiving log lines from child process stderr.
-    log_tx: tokio::sync::mpsc::UnboundedSender<(String, String)>,
-    log_rx: tokio::sync::mpsc::UnboundedReceiver<(String, String)>,
+    log_tx: tokio::sync::mpsc::Sender<(String, String)>,
+    log_rx: tokio::sync::mpsc::Receiver<(String, String)>,
     /// Channel for receiving connection results from async connect tasks.
-    connect_result_tx: tokio::sync::mpsc::UnboundedSender<ConnectResult>,
-    connect_result_rx: tokio::sync::mpsc::UnboundedReceiver<ConnectResult>,
+    connect_result_tx: tokio::sync::mpsc::Sender<ConnectResult>,
+    connect_result_rx: tokio::sync::mpsc::Receiver<ConnectResult>,
     /// Channel for receiving tool refresh requests from MCP `notifications/tools/list_changed`.
-    tool_refresh_tx: tokio::sync::mpsc::UnboundedSender<String>,
-    tool_refresh_rx: tokio::sync::mpsc::UnboundedReceiver<String>,
+    tool_refresh_tx: tokio::sync::mpsc::Sender<String>,
+    tool_refresh_rx: tokio::sync::mpsc::Receiver<String>,
     /// Channel for receiving resource refresh requests from MCP `notifications/resources/list_changed`.
-    resource_refresh_tx: tokio::sync::mpsc::UnboundedSender<String>,
-    resource_refresh_rx: tokio::sync::mpsc::UnboundedReceiver<String>,
+    resource_refresh_tx: tokio::sync::mpsc::Sender<String>,
+    resource_refresh_rx: tokio::sync::mpsc::Receiver<String>,
     /// Channel for receiving prompt refresh requests from MCP `notifications/prompts/list_changed`.
-    prompt_refresh_tx: tokio::sync::mpsc::UnboundedSender<String>,
-    prompt_refresh_rx: tokio::sync::mpsc::UnboundedReceiver<String>,
+    prompt_refresh_tx: tokio::sync::mpsc::Sender<String>,
+    prompt_refresh_rx: tokio::sync::mpsc::Receiver<String>,
     /// Channel for receiving MCP logging messages from `notifications/message`.
-    logging_message_tx: tokio::sync::mpsc::UnboundedSender<(String, rmcp::model::LoggingMessageNotificationParam)>,
-    logging_message_rx: tokio::sync::mpsc::UnboundedReceiver<(String, rmcp::model::LoggingMessageNotificationParam)>,
+    logging_message_tx: tokio::sync::mpsc::Sender<(String, rmcp::model::LoggingMessageNotificationParam)>,
+    logging_message_rx: tokio::sync::mpsc::Receiver<(String, rmcp::model::LoggingMessageNotificationParam)>,
     /// Watch channel to signal the proxy when tool lists change.
     tool_change_tx: tokio::sync::watch::Sender<()>,
     /// Port the web server is running on (persisted in config saves).
@@ -202,12 +202,12 @@ impl ServerManager {
         port: u16,
         shell_env: Arc<HashMap<String, String>>,
     ) -> Self {
-        let (log_tx, log_rx) = tokio::sync::mpsc::unbounded_channel();
-        let (connect_result_tx, connect_result_rx) = tokio::sync::mpsc::unbounded_channel();
-        let (tool_refresh_tx, tool_refresh_rx) = tokio::sync::mpsc::unbounded_channel();
-        let (resource_refresh_tx, resource_refresh_rx) = tokio::sync::mpsc::unbounded_channel();
-        let (prompt_refresh_tx, prompt_refresh_rx) = tokio::sync::mpsc::unbounded_channel();
-        let (logging_message_tx, logging_message_rx) = tokio::sync::mpsc::unbounded_channel();
+        let (log_tx, log_rx) = tokio::sync::mpsc::channel(5000);
+        let (connect_result_tx, connect_result_rx) = tokio::sync::mpsc::channel(100);
+        let (tool_refresh_tx, tool_refresh_rx) = tokio::sync::mpsc::channel(100);
+        let (resource_refresh_tx, resource_refresh_rx) = tokio::sync::mpsc::channel(100);
+        let (prompt_refresh_tx, prompt_refresh_rx) = tokio::sync::mpsc::channel(100);
+        let (logging_message_tx, logging_message_rx) = tokio::sync::mpsc::channel(1000);
         let mut health_check_interval =
             tokio::time::interval(std::time::Duration::from_secs(30));
         health_check_interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
@@ -930,7 +930,7 @@ impl ServerManager {
             }
             .await;
 
-            let _ = connect_result_tx.send(ConnectResult {
+            let _ = connect_result_tx.try_send(ConnectResult {
                 id: id_owned,
                 result,
             });
@@ -1013,7 +1013,7 @@ impl ServerManager {
             }
             .await;
 
-            let _ = connect_result_tx.send(ConnectResult {
+            let _ = connect_result_tx.try_send(ConnectResult {
                 id: id_owned,
                 result,
             });

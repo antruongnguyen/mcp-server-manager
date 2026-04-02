@@ -30,13 +30,13 @@ pub async fn stop_server(child: &mut Child) {
 pub fn spawn_stderr_reader(
     stderr: tokio::process::ChildStderr,
     id: String,
-    tx: tokio::sync::mpsc::UnboundedSender<(String, String)>,
+    tx: tokio::sync::mpsc::Sender<(String, String)>,
 ) {
     tokio::spawn(async move {
         let reader = BufReader::new(stderr);
         let mut lines = reader.lines();
         while let Ok(Some(line)) = lines.next_line().await {
-            if tx.send((id.clone(), line)).is_err() {
+            if tx.try_send((id.clone(), line)).is_err() {
                 break;
             }
         }

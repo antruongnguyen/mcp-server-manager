@@ -19,7 +19,7 @@ pub async fn run_backend(
     shell_env: Arc<HashMap<String, String>>,
 ) {
     // Backend → Web: broadcast channel
-    let (evt_tx, _evt_rx) = tokio::sync::broadcast::channel(256);
+    let (evt_tx, _evt_rx) = tokio::sync::broadcast::channel(1024);
 
     // Shared server state for the web layer
     let shared_servers = Arc::new(RwLock::new(HashMap::new()));

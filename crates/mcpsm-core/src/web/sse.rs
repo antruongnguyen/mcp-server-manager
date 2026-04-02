@@ -1,8 +1,9 @@
 use std::convert::Infallible;
 use std::sync::Arc;
+use std::time::Duration;
 
 use axum::extract::State;
-use axum::response::sse::{Event, Sse};
+use axum::response::sse::{Event, KeepAlive, Sse};
 use tokio_stream::wrappers::BroadcastStream;
 use tokio_stream::StreamExt;
 
@@ -21,5 +22,5 @@ pub async fn event_stream(
             Err(_) => None, // lagged — skip
         }
     });
-    Sse::new(stream)
+    Sse::new(stream).keep_alive(KeepAlive::new().interval(Duration::from_secs(30)))
 }

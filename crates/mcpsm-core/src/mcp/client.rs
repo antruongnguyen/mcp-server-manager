@@ -17,19 +17,19 @@ use crate::core::server::ServerConfig;
 pub struct McpsmClientHandler {
     client_info: ClientInfo,
     server_id: String,
-    tool_refresh_tx: tokio::sync::mpsc::UnboundedSender<String>,
-    resource_refresh_tx: tokio::sync::mpsc::UnboundedSender<String>,
-    prompt_refresh_tx: tokio::sync::mpsc::UnboundedSender<String>,
-    logging_message_tx: tokio::sync::mpsc::UnboundedSender<(String, LoggingMessageNotificationParam)>,
+    tool_refresh_tx: tokio::sync::mpsc::Sender<String>,
+    resource_refresh_tx: tokio::sync::mpsc::Sender<String>,
+    prompt_refresh_tx: tokio::sync::mpsc::Sender<String>,
+    logging_message_tx: tokio::sync::mpsc::Sender<(String, LoggingMessageNotificationParam)>,
 }
 
 impl McpsmClientHandler {
     pub fn new(
         server_id: String,
-        tool_refresh_tx: tokio::sync::mpsc::UnboundedSender<String>,
-        resource_refresh_tx: tokio::sync::mpsc::UnboundedSender<String>,
-        prompt_refresh_tx: tokio::sync::mpsc::UnboundedSender<String>,
-        logging_message_tx: tokio::sync::mpsc::UnboundedSender<(String, LoggingMessageNotificationParam)>,
+        tool_refresh_tx: tokio::sync::mpsc::Sender<String>,
+        resource_refresh_tx: tokio::sync::mpsc::Sender<String>,
+        prompt_refresh_tx: tokio::sync::mpsc::Sender<String>,
+        logging_message_tx: tokio::sync::mpsc::Sender<(String, LoggingMessageNotificationParam)>,
     ) -> Self {
         Self {
             client_info: ClientInfo::new(
@@ -55,7 +55,7 @@ impl ClientHandler for McpsmClientHandler {
             "[{}] Received tools/list_changed notification",
             self.server_id
         );
-        let _ = self.tool_refresh_tx.send(self.server_id.clone());
+        let _ = self.tool_refresh_tx.try_send(self.server_id.clone());
     }
 
     async fn on_resource_list_changed(&self, _context: NotificationContext<RoleClient>) {
@@ -63,7 +63,7 @@ impl ClientHandler for McpsmClientHandler {
             "[{}] Received resources/list_changed notification",
             self.server_id
         );
-        let _ = self.resource_refresh_tx.send(self.server_id.clone());
+        let _ = self.resource_refresh_tx.try_send(self.server_id.clone());
     }
 
     async fn on_prompt_list_changed(&self, _context: NotificationContext<RoleClient>) {
@@ -71,7 +71,7 @@ impl ClientHandler for McpsmClientHandler {
             "[{}] Received prompts/list_changed notification",
             self.server_id
         );
-        let _ = self.prompt_refresh_tx.send(self.server_id.clone());
+        let _ = self.prompt_refresh_tx.try_send(self.server_id.clone());
     }
 
     async fn on_logging_message(
@@ -85,7 +85,7 @@ impl ClientHandler for McpsmClientHandler {
             params.level,
             params.logger
         );
-        let _ = self.logging_message_tx.send((self.server_id.clone(), params));
+        let _ = self.logging_message_tx.try_send((self.server_id.clone(), params));
     }
 }
 
@@ -111,10 +111,10 @@ pub async fn connect_stdio(
     config: &ServerConfig,
     shell_env: &HashMap<String, String>,
     server_id: &str,
-    tool_refresh_tx: tokio::sync::mpsc::UnboundedSender<String>,
-    resource_refresh_tx: tokio::sync::mpsc::UnboundedSender<String>,
-    prompt_refresh_tx: tokio::sync::mpsc::UnboundedSender<String>,
-    logging_message_tx: tokio::sync::mpsc::UnboundedSender<(String, LoggingMessageNotificationParam)>,
+    tool_refresh_tx: tokio::sync::mpsc::Sender<String>,
+    resource_refresh_tx: tokio::sync::mpsc::Sender<String>,
+    prompt_refresh_tx: tokio::sync::mpsc::Sender<String>,
+    logging_message_tx: tokio::sync::mpsc::Sender<(String, LoggingMessageNotificationParam)>,
 ) -> anyhow::Result<StdioConnection> {
     let command = config.command.as_deref()
         .ok_or_else(|| anyhow::anyhow!("No command specified for stdio server"))?;
@@ -158,10 +158,10 @@ pub async fn connect_http(
     url: &str,
     headers: &HashMap<String, String>,
     server_id: &str,
-    tool_refresh_tx: tokio::sync::mpsc::UnboundedSender<String>,
-    resource_refresh_tx: tokio::sync::mpsc::UnboundedSender<String>,
-    prompt_refresh_tx: tokio::sync::mpsc::UnboundedSender<String>,
-    logging_message_tx: tokio::sync::mpsc::UnboundedSender<(String, LoggingMessageNotificationParam)>,
+    tool_refresh_tx: tokio::sync::mpsc::Sender<String>,
+    resource_refresh_tx: tokio::sync::mpsc::Sender<String>,
+    prompt_refresh_tx: tokio::sync::mpsc::Sender<String>,
+    logging_message_tx: tokio::sync::mpsc::Sender<(String, LoggingMessageNotificationParam)>,
 ) -> anyhow::Result<McpClient> {
     use rmcp::transport::streamable_http_client::{
         StreamableHttpClientTransport, StreamableHttpClientTransportConfig,
