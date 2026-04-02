@@ -2,6 +2,16 @@
 
 All notable changes to MCPSM (MCP Server Manager) are documented in this file.
 
+## [1.1.2] - 2026-04-02
+
+### Fixed
+
+- **Memory growth prevention**: bounded channels, SSE keepalive, and increased broadcast capacity to prevent unbounded memory growth
+
+### Changed
+
+- Updated CI configurations to include paths for crates and Cargo files
+
 ## [1.1.1] - 2026-03-31
 
 ### Added
