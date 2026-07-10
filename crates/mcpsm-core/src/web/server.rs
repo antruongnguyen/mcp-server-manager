@@ -15,7 +15,10 @@ pub fn build_router(state: Arc<AppState>, proxy_handler: ProxyHandler) -> Router
     let mcp_service = StreamableHttpService::new(
         move || Ok(proxy_handler.clone()),
         Arc::new(LocalSessionManager::default()),
-        StreamableHttpServerConfig::default(),
+        StreamableHttpServerConfig {
+            sse_retry: None,
+            ..StreamableHttpServerConfig::default()
+        },
     );
 
     Router::new()
