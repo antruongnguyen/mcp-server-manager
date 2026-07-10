@@ -35,6 +35,18 @@ pub type SharedServers = Arc<RwLock<HashMap<String, ServerInfo>>>;
 /// Shared map of MCP clients for the proxy to use.
 pub type SharedMcpClients = Arc<RwLock<HashMap<String, Arc<McpClient>>>>;
 
+/// Timeout for a single liveness probe of a Ready MCP client.
+const HEALTH_PROBE_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(10);
+/// Consecutive failed probes before a Ready server is evicted as hung.
+const MAX_PROBE_FAILURES: u8 = 2;
+/// Max consecutive auto-restarts (within `RESTART_WINDOW`) before we stop
+/// restarting a server and leave it in `Error` for manual intervention.
+const MAX_RESTART_ATTEMPTS: u8 = 3;
+/// Restart attempts older than this are forgiven (the counter resets), so a
+/// server that runs healthily for a while and then fails again gets a fresh
+/// budget rather than being permanently penalized.
+const RESTART_WINDOW: std::time::Duration = std::time::Duration::from_secs(300);
+
 /// The backend manager that runs on a tokio thread.
 pub struct ServerManager {
     cmd_rx: tokio::sync::mpsc::UnboundedReceiver<AppCommand>,
@@ -60,6 +72,10 @@ pub struct ServerManager {
     /// Channel for receiving MCP logging messages from `notifications/message`.
     logging_message_tx: tokio::sync::mpsc::Sender<(String, rmcp::model::LoggingMessageNotificationParam)>,
     logging_message_rx: tokio::sync::mpsc::Receiver<(String, rmcp::model::LoggingMessageNotificationParam)>,
+    /// Channel for receiving liveness-probe results from the spawned probe task.
+    /// Each item is `(server_id, probe_succeeded)`.
+    probe_result_tx: tokio::sync::mpsc::Sender<(String, bool)>,
+    probe_result_rx: tokio::sync::mpsc::Receiver<(String, bool)>,
     /// Watch channel to signal the proxy when tool lists change.
     tool_change_tx: tokio::sync::watch::Sender<()>,
     /// Port the web server is running on (persisted in config saves).
@@ -83,6 +99,11 @@ struct ManagedServer {
     current_log_level: Option<String>,
     logs: LogBuffer,
     child: Option<tokio::process::Child>,
+    probe_failures: u8,
+    /// Consecutive auto-restarts triggered by the health check, used for backoff.
+    restart_attempts: u8,
+    /// When the most recent auto-restart was triggered (for `RESTART_WINDOW`).
+    last_restart: Option<std::time::Instant>,
 }
 
 /// Result of an async MCP connection attempt (carries the client + metadata).
@@ -208,6 +229,7 @@ impl ServerManager {
         let (resource_refresh_tx, resource_refresh_rx) = tokio::sync::mpsc::channel(100);
         let (prompt_refresh_tx, prompt_refresh_rx) = tokio::sync::mpsc::channel(100);
         let (logging_message_tx, logging_message_rx) = tokio::sync::mpsc::channel(1000);
+        let (probe_result_tx, probe_result_rx) = tokio::sync::mpsc::channel(100);
         let mut health_check_interval =
             tokio::time::interval(std::time::Duration::from_secs(30));
         health_check_interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
@@ -229,6 +251,8 @@ impl ServerManager {
             prompt_refresh_rx,
             logging_message_tx,
             logging_message_rx,
+            probe_result_tx,
+            probe_result_rx,
             tool_change_tx,
             port,
             last_save_instant: std::time::Instant::now()
@@ -283,6 +307,11 @@ impl ServerManager {
                 msg = self.logging_message_rx.recv() => {
                     if let Some((id, params)) = msg {
                         self.handle_logging_message(&id, params).await;
+                    }
+                }
+                probe = self.probe_result_rx.recv() => {
+                    if let Some((id, ok)) = probe {
+                        self.handle_probe_result(&id, ok).await;
                     }
                 }
                 _ = self.health_check_interval.tick() => {
@@ -523,6 +552,9 @@ impl ServerManager {
                             current_log_level: None,
                             logs: LogBuffer::new(),
                             child: None,
+                            probe_failures: 0,
+                            restart_attempts: 0,
+                            last_restart: None,
                         },
                     );
                     loaded.push((id.clone(), config.clone()));
@@ -652,6 +684,9 @@ impl ServerManager {
                         current_log_level: None,
                         logs: LogBuffer::new(),
                         child: None,
+                        probe_failures: 0,
+                        restart_attempts: 0,
+                        last_restart: None,
                     },
                 );
                 if !new_config.disabled {
@@ -683,6 +718,9 @@ impl ServerManager {
                 current_log_level: None,
                 logs: LogBuffer::new(),
                 child: None,
+                probe_failures: 0,
+                restart_attempts: 0,
+                last_restart: None,
             },
         );
         self.sync_shared_state().await;
@@ -1193,9 +1231,129 @@ impl ServerManager {
         self.sync_shared_state().await;
     }
 
+    /// Evict a Ready-but-broken server: remove client, kill child, mark Error,
+    /// broadcast, and auto-restart if not disabled and within the restart budget.
+    async fn evict_and_maybe_restart(&mut self, id: &str, reason: &str) {
+        self.shared_mcp_clients.write().await.remove(id);
+
+        // Decide whether to restart, applying a windowed consecutive-restart cap.
+        // A restart older than RESTART_WINDOW forgives the counter, so a server
+        // that ran healthily for a while gets a fresh budget.
+        let mut should_restart = false;
+        if let Some(server) = self.servers.get_mut(id) {
+            if let Some(ref mut child) = server.child {
+                process::stop_server(child).await;
+            }
+            server.child = None;
+            server.tools.clear();
+            server.resources.clear();
+            server.resource_templates.clear();
+            server.prompts.clear();
+            server.peer_info = None;
+            server.probe_failures = 0; // reset failures on eviction so the restarted instance starts clean
+
+            let within_window = server
+                .last_restart
+                .is_some_and(|t| t.elapsed() < RESTART_WINDOW);
+            if !within_window {
+                server.restart_attempts = 0;
+            }
+
+            let restart_exhausted =
+                !server.config.disabled && server.restart_attempts >= MAX_RESTART_ATTEMPTS;
+
+            let message = if restart_exhausted {
+                format!(
+                    "{} — auto-restart gave up after {} attempts; start manually",
+                    reason, MAX_RESTART_ATTEMPTS
+                )
+            } else {
+                reason.to_string()
+            };
+            server.status = ServerStatus::Error { message };
+
+            should_restart = !server.config.disabled && !restart_exhausted;
+            if should_restart {
+                server.restart_attempts = server.restart_attempts.saturating_add(1);
+                server.last_restart = Some(std::time::Instant::now());
+            }
+        }
+        let error_message = self
+            .servers
+            .get(id)
+            .and_then(|s| match &s.status {
+                ServerStatus::Error { message } => Some(message.clone()),
+                _ => None,
+            })
+            .unwrap_or_else(|| reason.to_string());
+
+        let _ = self.tool_change_tx.send(());
+        self.sync_shared_state().await;
+        send(
+            &self.evt_tx,
+            BackendEvent::ServerStatusChanged {
+                id: id.to_string(),
+                status: ServerStatus::Error {
+                    message: error_message.clone(),
+                },
+            },
+        );
+
+        if should_restart {
+            tracing::info!("[{}] Attempting auto-restart after health check failure", id);
+            self.push_log(id, "[mcpsm] Attempting auto-restart...".to_string());
+            self.handle_start_server(id).await;
+        } else if !self.servers.get(id).is_some_and(|s| s.config.disabled) {
+            tracing::warn!(
+                "[{}] Auto-restart budget exhausted; leaving in Error for manual restart",
+                id
+            );
+            self.push_log(
+                id,
+                "[mcpsm] Auto-restart budget exhausted; start the server manually".to_string(),
+            );
+        }
+    }
+
     /// Periodic health check: detect crashed/disconnected MCP servers and attempt auto-restart.
     async fn run_health_checks(&mut self) {
-        // Collect Ready servers whose MCP client connection has closed
+        // --- Pass 1: active liveness probe for Ready servers ---
+        // Snapshot the Arc handles (fast, no child await), then probe in a
+        // detached task so a hung child never stalls the manager loop. Results
+        // flow back via `probe_result_tx` and are applied in `handle_probe_result`.
+        let probe_targets: Vec<(String, Arc<McpClient>)> = {
+            let clients = self.shared_mcp_clients.read().await;
+            self.servers
+                .iter()
+                .filter(|(_, s)| matches!(s.status, ServerStatus::Ready { .. }))
+                .filter_map(|(id, _)| clients.get(id).map(|c| (id.clone(), Arc::clone(c))))
+                .collect()
+        };
+
+        if !probe_targets.is_empty() {
+            let tx = self.probe_result_tx.clone();
+            tokio::spawn(async move {
+                let mut join_set = tokio::task::JoinSet::new();
+                for (id, client) in probe_targets {
+                    join_set.spawn(async move {
+                        let ok = matches!(
+                            tokio::time::timeout(HEALTH_PROBE_TIMEOUT, client.list_all_tools())
+                                .await,
+                            Ok(Ok(_))
+                        );
+                        (id, ok)
+                    });
+                }
+                while let Some(res) = join_set.join_next().await {
+                    if let Ok((id, ok)) = res {
+                        // Manager alive as long as the loop runs; ignore send errors on shutdown.
+                        let _ = tx.send((id, ok)).await;
+                    }
+                }
+            });
+        }
+
+        // --- Pass 2: closed-connection detection (synchronous check, no child await) ---
         let failed_ids: Vec<String> = {
             let clients = self.shared_mcp_clients.read().await;
             self.servers
@@ -1216,47 +1374,42 @@ impl ServerManager {
                 &id,
                 "[mcpsm] Health check failed: connection lost".to_string(),
             );
+            self.evict_and_maybe_restart(&id, "Connection lost (detected by health check)").await;
+        }
+    }
 
-            // Clean up the dead client
-            self.shared_mcp_clients.write().await.remove(&id);
-            if let Some(server) = self.servers.get_mut(&id) {
-                if let Some(ref mut child) = server.child {
-                    process::stop_server(child).await;
-                }
-                server.child = None;
-                server.tools.clear();
-                server.resources.clear();
-                server.resource_templates.clear();
-                server.peer_info = None;
-                server.status = ServerStatus::Error {
-                    message: "Connection lost (detected by health check)".into(),
-                };
+    /// Apply a single liveness-probe result: update the failure counter and, once
+    /// `MAX_PROBE_FAILURES` consecutive failures are reached, evict the server.
+    async fn handle_probe_result(&mut self, id: &str, ok: bool) {
+        // A server may have been stopped/evicted between probe dispatch and result.
+        let is_ready = self
+            .servers
+            .get(id)
+            .is_some_and(|s| matches!(s.status, ServerStatus::Ready { .. }));
+        if !is_ready {
+            return;
+        }
+
+        let evict = if let Some(server) = self.servers.get_mut(id) {
+            if ok {
+                server.probe_failures = 0;
+                false
+            } else {
+                server.probe_failures = server.probe_failures.saturating_add(1);
+                server.probe_failures >= MAX_PROBE_FAILURES
             }
-            let _ = self.tool_change_tx.send(());
-            self.sync_shared_state().await;
-            send(
-                &self.evt_tx,
-                BackendEvent::ServerStatusChanged {
-                    id: id.clone(),
-                    status: ServerStatus::Error {
-                        message: "Connection lost (detected by health check)".into(),
-                    },
-                },
+        } else {
+            false
+        };
+
+        if evict {
+            tracing::warn!("[{}] Health check: unresponsive (hung), evicting", id);
+            self.push_log(
+                id,
+                "[mcpsm] Health check failed: server unresponsive".to_string(),
             );
-
-            // Attempt auto-restart if not disabled
-            let is_disabled = self
-                .servers
-                .get(&id)
-                .is_some_and(|s| s.config.disabled);
-            if !is_disabled {
-                tracing::info!("[{}] Attempting auto-restart after health check failure", id);
-                self.push_log(
-                    &id,
-                    "[mcpsm] Attempting auto-restart...".to_string(),
-                );
-                self.handle_start_server(&id).await;
-            }
+            self.evict_and_maybe_restart(id, "Unresponsive (detected by liveness probe)")
+                .await;
         }
     }
 
