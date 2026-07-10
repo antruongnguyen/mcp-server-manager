@@ -75,6 +75,7 @@ MCPSM acts as a unified MCP proxy server at `http://127.0.0.1:{port}/mcp` (port 
 - **ProxyHandler** (`mcp/proxy.rs`): implements `rmcp::handler::server::ServerHandler`, tool aggregation with namespacing (`server_id__tool_name`)
 - **Transport**: rmcp's `StreamableHttpService` mounted via `.nest_service("/mcp", ...)`
 - **Server lifecycle**: Stopped → Starting → Initializing (MCP handshake) → Ready (tools discovered)
+- **Lock discipline (critical)**: proxy list/call handlers must clone the `clients`/`servers` maps in a scoped block and drop the `RwLock` read guards *before* any child `.await`. Holding a guard across an await starves the `ServerManager`'s write lock and freezes the whole app. All per-child requests are wrapped in `CHILD_REQUEST_TIMEOUT` (30s) so a hung child is skipped/errored, never blocking indefinitely.
 
 ## Config File
 
@@ -104,6 +105,14 @@ Servers are spawned via `tokio::process::Command` with piped stdin/stdout/stderr
 - **stderr** — captured as log lines by a tokio task, fed into the manager's `select!` loop
 
 Shell environment is captured once at startup via `core::shell_env::capture_shell_env()` (runs `$SHELL -l -c env`), then passed to all child processes via `env_clear()` + `envs()`. This ensures tools installed via nvm, pyenv, Homebrew, etc. are found even when running as a `.app` bundle. Config env vars override the captured environment. Graceful shutdown: SIGTERM → 5s wait → SIGKILL.
+
+## Health Checks & Auto-Recovery
+
+The manager runs a 30s health-check tick (`run_health_checks` in `core/manager.rs`) with two passes:
+- **Liveness probe (Pass 1)**: for each Ready server, snapshots the `Arc<McpClient>` handles (dropping the lock before awaiting), then probes each in a **detached spawned task** (bounded by `HEALTH_PROBE_TIMEOUT`, 10s) so a hung child never stalls the manager loop. Results flow back via the `probe_result_tx` channel and are applied in `handle_probe_result`, which increments `ManagedServer.probe_failures`. After `MAX_PROBE_FAILURES` (2) consecutive failures the server is evicted. This catches *alive-but-hung* children that `is_closed()` cannot.
+- **Closed-connection detection (Pass 2)**: synchronous `c.is_closed()` check (no child await), inline.
+
+Both paths funnel into `evict_and_maybe_restart(id, reason)`: removes the client, kills the child, clears state, sets `Error`, and auto-restarts if not disabled. **Restart backoff**: at most `MAX_RESTART_ATTEMPTS` (3) restarts within `RESTART_WINDOW` (5min); a restart older than the window forgives the counter, so a server that ran healthily for a while gets a fresh budget while a fast flapper is left in `Error` for manual restart.
 
 ## Status Bar
 
