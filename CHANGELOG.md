@@ -2,6 +2,19 @@
 
 All notable changes to MCPSM (MCP Server Manager) are documented in this file.
 
+## [1.1.3] - 2026-07-10
+
+### Fixed
+
+- **Proxy lock-contention stall**: the MCP proxy held `RwLock` read guards on the shared clients/servers maps across child `.await` calls in `list_tools`/`list_resources`/`list_resource_templates`/`list_prompts`/`set_level`. A hung child server could starve the `ServerManager`'s write lock, freezing its event loop and every dashboard API read until an app restart. The proxy now clones the maps in a scoped block and drops the guards before any await.
+- **Unbounded child requests**: every per-child proxy request (list, call, read, get, set-level) is now wrapped in a 30s timeout, so a hung child is skipped or returns a timeout error instead of hanging the aggregate response indefinitely.
+
+### Added
+
+- **Active liveness probes** in the periodic health check: alive-but-hung children (transport open but unresponsive) are now detected via a bounded `list_tools` probe and, after repeated failures, evicted and auto-restarted — closing the case that `is_closed()` detection alone missed.
+- **Restart backoff**: a server that keeps failing is auto-restarted at most 3 times within a 5-minute window before being left in `Error` for manual restart, preventing endless restart loops.
+- Proxy lock-contention regression test using an in-process hanging MCP server.
+
 ## [1.1.2] - 2026-04-02
 
 ### Fixed

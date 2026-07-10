@@ -213,7 +213,11 @@
   }
   .config-value {
     font-family: "SF Mono", "Menlo", "Consolas", monospace;
+    white-space: pre-wrap;
     color: var(--text); font-size: 12px;
+    max-height: 100px;
+    overflow-y: auto;
+    flex: 1;
   }
   .config-sep {
     width: 100%; height: 1px; background: var(--border); margin: 8px 0;
@@ -1288,19 +1292,19 @@ function ConfigSection({ server }) {
       ${title && html`
         <div class="config-row">
           <span class="config-label">Title</span>
-          <span style="color:var(--text)">${title}</span>
+          <span class="config-value">${title}</span>
         </div>
       `}
       ${description && html`
         <div class="config-row">
           <span class="config-label">About</span>
-          <span style="color:var(--text)">${description}</span>
+          <span class="config-value">${description}</span>
         </div>
       `}
       ${instructions && html`
         <div class="config-row" style="align-items:flex-start">
           <span class="config-label">Instructions</span>
-          <span class="config-value" style="white-space:pre-wrap">${instructions}</span>
+          <span class="config-value">${instructions}</span>
         </div>
       `}
     `}
