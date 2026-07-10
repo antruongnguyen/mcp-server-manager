@@ -29,3 +29,5 @@ http = "1"
 
 [dev-dependencies]
 tempfile = "3"
+# In-process duplex transport, used only by proxy lock-contention regression tests.
+rmcp = { version = "1.1", features = ["transport-async-rw"] }
