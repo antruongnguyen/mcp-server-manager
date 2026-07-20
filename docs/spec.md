@@ -280,6 +280,7 @@ MCPSM (MCP Server Manager) is a native macOS status bar application that manages
 | DELETE | `/api/servers/:id/logs` | — | 202 | Clear server logs |
 | POST | `/api/servers/start-all` | — | 202 | Start all non-disabled servers |
 | POST | `/api/servers/stop-all` | — | 202 | Stop all running servers |
+| GET | `/api/health` | — | JSON | Daemon health: `status` (ok/degraded), `name`, `version`, server counts |
 | GET | `/api/templates` | — | JSON array | Built-in server templates |
 | GET | `/api/events` | — | SSE stream | Real-time backend events |
 

@@ -2,6 +2,12 @@
 
 All notable changes to MCPSM (MCP Server Manager) are documented in this file.
 
+## [Unreleased]
+
+### Added
+
+- **`GET /api/health` endpoint**: returns daemon `status` (`ok`, or `degraded` when any managed server is in `Error`), app `name`, `version`, and per-status server counts (total/ready/error/stopped/other) for monitoring.
+
 ## [1.1.3] - 2026-07-10
 
 ### Fixed

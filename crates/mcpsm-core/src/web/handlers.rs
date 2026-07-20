@@ -257,3 +257,36 @@ pub async fn get_memory(State(state): State<Arc<AppState>>) -> Json<serde_json::
         "version": env!("CARGO_PKG_VERSION"),
     }))
 }
+
+pub async fn health(State(state): State<Arc<AppState>>) -> Json<serde_json::Value> {
+    let servers = state.servers.read().await;
+    let total = servers.len();
+    let mut ready = 0usize;
+    let mut error = 0usize;
+    let mut stopped = 0usize;
+    let mut other = 0usize;
+
+    for info in servers.values() {
+        match &info.status {
+            ServerStatus::Ready { .. } => ready += 1,
+            ServerStatus::Error { .. } => error += 1,
+            ServerStatus::Stopped => stopped += 1,
+            _ => other += 1,
+        }
+    }
+
+    let status = if error > 0 { "degraded" } else { "ok" };
+
+    Json(serde_json::json!({
+        "status": status,
+        "name": "MCPSM",
+        "version": env!("CARGO_PKG_VERSION"),
+        "servers": {
+            "total": total,
+            "ready": ready,
+            "error": error,
+            "stopped": stopped,
+            "other": other,
+        },
+    }))
+}

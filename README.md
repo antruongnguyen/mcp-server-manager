@@ -274,6 +274,7 @@ scripts/                            # build-app.sh, generate-icons.sh
 | DELETE | `/api/servers/:id/logs`    | Clear server logs                            |
 | POST   | `/api/servers/start-all`   | Start all non-disabled servers               |
 | POST   | `/api/servers/stop-all`    | Stop all running servers                     |
+| GET    | `/api/health`              | Daemon health: status, name, version, server counts |
 | GET    | `/api/templates`           | List built-in templates                      |
 | GET    | `/api/events`              | SSE event stream                         |
 
