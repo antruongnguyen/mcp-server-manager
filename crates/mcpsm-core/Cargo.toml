@@ -16,7 +16,7 @@ dirs = "6"
 libc = "0.2"
 open = "5"
 notify = "7"
-rmcp = { version = "1.1", features = [
+rmcp = { version = "2.0", features = [
     "client",
     "server",
     "transport-child-process",
@@ -30,4 +30,4 @@ http = "1"
 [dev-dependencies]
 tempfile = "3"
 # In-process duplex transport, used only by proxy lock-contention regression tests.
-rmcp = { version = "1.1", features = ["transport-async-rw"] }
+rmcp = { version = "2.0", features = ["transport-async-rw"] }
