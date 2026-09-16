@@ -38,6 +38,9 @@ impl ProxyHandler {
 }
 
 impl ServerHandler for ProxyHandler {
+    // enable_logging() is deprecated by SEP-2577 in rmcp 1.8 but still functional;
+    // MCPSM keeps advertising the logging capability to its own clients.
+    #[allow(deprecated)]
     fn get_info(&self) -> ServerInfo {
         // Capabilities are static at construction time; tools are always enabled.
         // Prompts, resources, and logging are also always advertised — the handlers return
@@ -502,6 +505,8 @@ impl ServerHandler for ProxyHandler {
             }
 
             let params = SetLevelRequestParams::new(request.level);
+            // MCP logging deprecated by SEP-2577 (rmcp 1.8) but still functional.
+            #[allow(deprecated)]
             match tokio::time::timeout(CHILD_REQUEST_TIMEOUT, client.set_level(params)).await {
                 Ok(Ok(())) => {
                     any_success = true;

@@ -15,9 +15,12 @@ pub fn build_router(state: Arc<AppState>, proxy_handler: ProxyHandler) -> Router
     let mcp_service = StreamableHttpService::new(
         move || Ok(proxy_handler.clone()),
         Arc::new(LocalSessionManager::default()),
-        StreamableHttpServerConfig {
-            sse_retry: None,
-            ..StreamableHttpServerConfig::default()
+        {
+            // StreamableHttpServerConfig is #[non_exhaustive] in rmcp 1.8; build
+            // from default() and override the single field we care about.
+            let mut cfg = StreamableHttpServerConfig::default();
+            cfg.sse_retry = None;
+            cfg
         },
     );
 

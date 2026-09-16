@@ -197,7 +197,8 @@ pub async fn list_tools(client: &McpClient) -> anyhow::Result<Vec<Tool>> {
 
 /// Get the peer server info (set after MCP handshake).
 pub fn peer_info(client: &McpClient) -> Option<ServerInfo> {
-    client.peer_info().cloned()
+    // rmcp 1.8 returns `Option<Arc<InitializeResult>>`; clone the inner value out.
+    client.peer_info().map(|info| (*info).clone())
 }
 
 /// Call a tool on a connected MCP client.
@@ -260,6 +261,9 @@ pub async fn set_logging_level(
     level: rmcp::model::LoggingLevel,
 ) -> anyhow::Result<()> {
     let params = SetLevelRequestParams::new(level);
+    // MCP logging is deprecated by SEP-2577 in rmcp 1.8 but still functional;
+    // MCPSM continues to forward log-level changes to child servers.
+    #[allow(deprecated)]
     client.set_level(params).await?;
     Ok(())
 }

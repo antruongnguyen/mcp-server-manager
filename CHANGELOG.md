@@ -4,9 +4,21 @@ All notable changes to MCPSM (MCP Server Manager) are documented in this file.
 
 ## [Unreleased]
 
+## [1.1.4] - 2026-09-16
+
+### Changed
+
+- **Remote HTTP MCP servers now reconnect after the first failed health probe**, allowing expired sessions to recover promptly after laptop sleep. STDIO servers retain the existing two-failure tolerance. Health eviction also cancels the removed MCP client (releasing its transport), and stale probe results from an already-replaced connection are ignored so they cannot evict the fresh client.
+- Updated `rmcp` 1.1 → 1.8, adapting to its API changes: `peer_info()` now returns `Option<Arc<InitializeResult>>`, and `StreamableHttpServerConfig` became `#[non_exhaustive]`. MCP logging (`set_level`/`enable_logging`) is deprecated by SEP-2577 but remains functional and supported.
+- Refreshed other dependencies to their latest compatible (within-range) versions — `axum` 0.8.8 → 0.8.9, `http` 1.4 → 1.5, `open` 5.3 → 5.4, `anyhow` 1.0.102 → 1.0.104, `libc` 0.2.183 → 0.2.189, `serde_json` 1.0.149 → 1.0.151, `tokio-stream` 0.1.18 → 0.1.19, `tracing-subscriber` 0.3.22 → 0.3.23, and `tempfile` 3.26 → 3.27. No manifest range changes; `dirs`, `notify`, and `objc2` majors were intentionally held back.
+
 ### Added
 
 - **`GET /api/health` endpoint**: returns daemon `status` (`ok`, or `degraded` when any managed server is in `Error`), app `name`, `version`, and per-status server counts (total/ready/error/stopped/other) for monitoring.
+
+### Fixed
+
+- Resolved all outstanding Clippy lints in `mcpsm-core` (redundant closures, collapsible `if let` chains, an unneeded `return`); no behavior change.
 
 ## [1.1.3] - 2026-07-10
 

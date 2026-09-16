@@ -17,7 +17,7 @@ pub async fn stop_server(child: &mut Child) {
 
     // Wait up to 5 seconds for graceful shutdown
     match tokio::time::timeout(std::time::Duration::from_secs(5), child.wait()).await {
-        Ok(_) => return,
+        Ok(_) => (),
         Err(_) => {
             tracing::warn!("Server did not stop within 5s, sending SIGKILL");
             let _ = child.kill().await;
