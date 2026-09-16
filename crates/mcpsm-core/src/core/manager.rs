@@ -39,6 +39,17 @@ pub type SharedMcpClients = Arc<RwLock<HashMap<String, Arc<McpClient>>>>;
 const HEALTH_PROBE_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(10);
 /// Consecutive failed probes before a Ready server is evicted as hung.
 const MAX_PROBE_FAILURES: u8 = 2;
+/// Remote HTTP sessions are disposable and should reconnect on their first
+/// failed probe; local STDIO processes retain one transient-failure retry.
+/// A config with both `command` and `url` uses the STDIO threshold, matching
+/// `start_servers_batch`'s STDIO-first connection selection.
+fn max_probe_failures(config: &ServerConfig) -> u8 {
+    if config.is_remote() && !config.is_stdio() {
+        1
+    } else {
+        MAX_PROBE_FAILURES
+    }
+}
 /// Max consecutive auto-restarts (within `RESTART_WINDOW`) before we stop
 /// restarting a server and leave it in `Error` for manual intervention.
 const MAX_RESTART_ATTEMPTS: u8 = 3;
@@ -73,9 +84,8 @@ pub struct ServerManager {
     logging_message_tx: tokio::sync::mpsc::Sender<(String, rmcp::model::LoggingMessageNotificationParam)>,
     logging_message_rx: tokio::sync::mpsc::Receiver<(String, rmcp::model::LoggingMessageNotificationParam)>,
     /// Channel for receiving liveness-probe results from the spawned probe task.
-    /// Each item is `(server_id, probe_succeeded)`.
-    probe_result_tx: tokio::sync::mpsc::Sender<(String, bool)>,
-    probe_result_rx: tokio::sync::mpsc::Receiver<(String, bool)>,
+    probe_result_tx: tokio::sync::mpsc::Sender<ProbeResult>,
+    probe_result_rx: tokio::sync::mpsc::Receiver<ProbeResult>,
     /// Watch channel to signal the proxy when tool lists change.
     tool_change_tx: tokio::sync::watch::Sender<()>,
     /// Port the web server is running on (persisted in config saves).
@@ -121,6 +131,15 @@ struct ConnectSuccess {
     resource_templates: Vec<ResourceTemplateInfo>,
     prompts: Vec<PromptInfo>,
     peer_info: Option<McpPeerInfo>,
+}
+
+/// Result of a single liveness probe. Carries the probed `Arc<McpClient>` so a
+/// stale result from an evicted/replaced connection can be rejected via
+/// `Arc::ptr_eq` before it touches the current server's failure counter.
+struct ProbeResult {
+    id: String,
+    client: Arc<McpClient>,
+    ok: bool,
 }
 
 fn send(tx: &tokio::sync::broadcast::Sender<BackendEvent>, event: BackendEvent) {
@@ -310,8 +329,8 @@ impl ServerManager {
                     }
                 }
                 probe = self.probe_result_rx.recv() => {
-                    if let Some((id, ok)) = probe {
-                        self.handle_probe_result(&id, ok).await;
+                    if let Some(result) = probe {
+                        self.handle_probe_result(result).await;
                     }
                 }
                 _ = self.health_check_interval.tick() => {
@@ -758,10 +777,10 @@ impl ServerManager {
     }
 
     async fn handle_delete_server(&mut self, id: &str) {
-        if let Some(mut server) = self.servers.remove(id) {
-            if let Some(ref mut child) = server.child {
-                process::stop_server(child).await;
-            }
+        if let Some(mut server) = self.servers.remove(id)
+            && let Some(ref mut child) = server.child
+        {
+            process::stop_server(child).await;
         }
         // Remove the MCP client (cancel via token, then drop the Arc)
         if let Some(client) = self.shared_mcp_clients.write().await.remove(id) {
@@ -913,7 +932,7 @@ impl ServerManager {
                     process::spawn_stderr_reader(stderr, id_owned.clone(), log_tx);
                 }
 
-                let pid = conn.child.as_ref().and_then(|c| process::get_pid(c));
+                let pid = conn.child.as_ref().and_then(process::get_pid);
 
                 // Get peer server info
                 let peer_info =
@@ -923,7 +942,7 @@ impl ServerManager {
                 let tools = client::list_tools(&conn.client)
                     .await
                     .map_err(|e| format!("Failed to list tools: {}", e))?;
-                let tool_infos: Vec<ToolInfo> = tools.iter().map(|t| tool_to_info(t)).collect();
+                let tool_infos: Vec<ToolInfo> = tools.iter().map(tool_to_info).collect();
 
                 // List resources and resource templates if capability is advertised
                 let has_resources = peer_info.as_ref().is_some_and(|p| p.capabilities.resources);
@@ -935,8 +954,8 @@ impl ServerManager {
                         .await
                         .unwrap_or_default();
                     (
-                        resources.iter().map(|r| resource_to_info(r)).collect(),
-                        templates.iter().map(|t| resource_template_to_info(t)).collect(),
+                        resources.iter().map(resource_to_info).collect(),
+                        templates.iter().map(resource_template_to_info).collect(),
                     )
                 } else {
                     (Vec::new(), Vec::new())
@@ -949,7 +968,7 @@ impl ServerManager {
                         .await
                         .unwrap_or_default()
                         .iter()
-                        .map(|p| prompt_to_info(p))
+                        .map(prompt_to_info)
                         .collect()
                 } else {
                     Vec::new()
@@ -1006,7 +1025,7 @@ impl ServerManager {
                 let tools = client::list_tools(&mcp_client)
                     .await
                     .map_err(|e| format!("Failed to list tools: {}", e))?;
-                let tool_infos: Vec<ToolInfo> = tools.iter().map(|t| tool_to_info(t)).collect();
+                let tool_infos: Vec<ToolInfo> = tools.iter().map(tool_to_info).collect();
 
                 // List resources and resource templates if capability is advertised
                 let has_resources = peer_info.as_ref().is_some_and(|p| p.capabilities.resources);
@@ -1018,8 +1037,8 @@ impl ServerManager {
                         .await
                         .unwrap_or_default();
                     (
-                        resources.iter().map(|r| resource_to_info(r)).collect(),
-                        templates.iter().map(|t| resource_template_to_info(t)).collect(),
+                        resources.iter().map(resource_to_info).collect(),
+                        templates.iter().map(resource_template_to_info).collect(),
                     )
                 } else {
                     (Vec::new(), Vec::new())
@@ -1032,7 +1051,7 @@ impl ServerManager {
                         .await
                         .unwrap_or_default()
                         .iter()
-                        .map(|p| prompt_to_info(p))
+                        .map(prompt_to_info)
                         .collect()
                 } else {
                     Vec::new()
@@ -1234,7 +1253,13 @@ impl ServerManager {
     /// Evict a Ready-but-broken server: remove client, kill child, mark Error,
     /// broadcast, and auto-restart if not disabled and within the restart budget.
     async fn evict_and_maybe_restart(&mut self, id: &str, reason: &str) {
-        self.shared_mcp_clients.write().await.remove(id);
+        // Remove and cancel the MCP client. Cancellation stops the rmcp service
+        // and releases its transport — the direct way to tear down a remote HTTP
+        // session, which has no child process to kill. The write guard is dropped
+        // at the end of this statement, before the child await below.
+        if let Some(client) = self.shared_mcp_clients.write().await.remove(id) {
+            client.cancellation_token().cancel();
+        }
 
         // Decide whether to restart, applying a windowed consecutive-restart cap.
         // A restart older than RESTART_WINDOW forgives the counter, so a server
@@ -1341,13 +1366,13 @@ impl ServerManager {
                                 .await,
                             Ok(Ok(_))
                         );
-                        (id, ok)
+                        ProbeResult { id, client, ok }
                     });
                 }
                 while let Some(res) = join_set.join_next().await {
-                    if let Ok((id, ok)) = res {
+                    if let Ok(result) = res {
                         // Manager alive as long as the loop runs; ignore send errors on shutdown.
-                        let _ = tx.send((id, ok)).await;
+                        let _ = tx.send(result).await;
                     }
                 }
             });
@@ -1379,37 +1404,72 @@ impl ServerManager {
     }
 
     /// Apply a single liveness-probe result: update the failure counter and, once
-    /// `MAX_PROBE_FAILURES` consecutive failures are reached, evict the server.
-    async fn handle_probe_result(&mut self, id: &str, ok: bool) {
-        // A server may have been stopped/evicted between probe dispatch and result.
+    /// the transport-aware threshold (`max_probe_failures`) consecutive failures
+    /// are reached, evict the server. Remote HTTP sessions reconnect on the first
+    /// failure; STDIO servers tolerate one transient failure.
+    async fn handle_probe_result(&mut self, result: ProbeResult) {
+        // Reject a stale result from a connection that was already evicted and
+        // replaced (e.g. by passive `is_closed()` detection or a manual restart)
+        // between probe dispatch and result. Without this, an old failure could
+        // evict the fresh client — especially under the HTTP one-failure policy.
+        let is_current_client = {
+            let clients = self.shared_mcp_clients.read().await;
+            clients
+                .get(&result.id)
+                .is_some_and(|current| Arc::ptr_eq(current, &result.client))
+        };
+        if !is_current_client {
+            return;
+        }
+
+        // A server may have been stopped/transitioned between probe dispatch and result.
         let is_ready = self
             .servers
-            .get(id)
+            .get(&result.id)
             .is_some_and(|s| matches!(s.status, ServerStatus::Ready { .. }));
         if !is_ready {
             return;
         }
 
-        let evict = if let Some(server) = self.servers.get_mut(id) {
-            if ok {
+        let mut is_http = false;
+        let evict = if let Some(server) = self.servers.get_mut(&result.id) {
+            if result.ok {
                 server.probe_failures = 0;
                 false
             } else {
+                is_http = server.config.is_remote() && !server.config.is_stdio();
+                let threshold = max_probe_failures(&server.config);
                 server.probe_failures = server.probe_failures.saturating_add(1);
-                server.probe_failures >= MAX_PROBE_FAILURES
+                server.probe_failures >= threshold
             }
         } else {
             false
         };
 
         if evict {
-            tracing::warn!("[{}] Health check: unresponsive (hung), evicting", id);
-            self.push_log(
-                id,
-                "[mcpsm] Health check failed: server unresponsive".to_string(),
-            );
-            self.evict_and_maybe_restart(id, "Unresponsive (detected by liveness probe)")
+            if is_http {
+                tracing::warn!("[{}] HTTP health probe failed; reconnecting", result.id);
+                self.push_log(
+                    &result.id,
+                    "[mcpsm] HTTP health probe failed; reconnecting...".to_string(),
+                );
+                self.evict_and_maybe_restart(
+                    &result.id,
+                    "Remote HTTP connection unresponsive (detected by health probe)",
+                )
                 .await;
+            } else {
+                tracing::warn!("[{}] Health check: unresponsive (hung), evicting", result.id);
+                self.push_log(
+                    &result.id,
+                    "[mcpsm] Health check failed: server unresponsive".to_string(),
+                );
+                self.evict_and_maybe_restart(
+                    &result.id,
+                    "Unresponsive (detected by liveness probe)",
+                )
+                .await;
+            }
         }
     }
 
@@ -1441,7 +1501,7 @@ impl ServerManager {
 
         match client::list_tools(&client).await {
             Ok(tools) => {
-                let tool_infos: Vec<ToolInfo> = tools.iter().map(|t| tool_to_info(t)).collect();
+                let tool_infos: Vec<ToolInfo> = tools.iter().map(tool_to_info).collect();
                 let count = tool_infos.len();
 
                 if let Some(server) = self.servers.get_mut(id) {
@@ -1501,7 +1561,7 @@ impl ServerManager {
         );
 
         let resources = match client::list_resources(&client).await {
-            Ok(r) => r.iter().map(|r| resource_to_info(r)).collect::<Vec<_>>(),
+            Ok(r) => r.iter().map(resource_to_info).collect::<Vec<_>>(),
             Err(e) => {
                 tracing::warn!("[{}] Failed to refresh resource list: {}", id, e);
                 self.push_log(
@@ -1513,7 +1573,7 @@ impl ServerManager {
         };
 
         let templates = match client::list_resource_templates(&client).await {
-            Ok(t) => t.iter().map(|t| resource_template_to_info(t)).collect::<Vec<_>>(),
+            Ok(t) => t.iter().map(resource_template_to_info).collect::<Vec<_>>(),
             Err(e) => {
                 tracing::warn!("[{}] Failed to refresh resource template list: {}", id, e);
                 self.push_log(
@@ -1577,7 +1637,7 @@ impl ServerManager {
         match client::list_prompts(&client).await {
             Ok(prompts) => {
                 let prompt_infos: Vec<PromptInfo> =
-                    prompts.iter().map(|p| prompt_to_info(p)).collect();
+                    prompts.iter().map(prompt_to_info).collect();
                 let count = prompt_infos.len();
 
                 if let Some(server) = self.servers.get_mut(id) {
@@ -1772,5 +1832,41 @@ impl ServerManager {
             })
             .collect();
         *self.shared.write().await = snapshot;
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn config(command: Option<&str>, url: Option<&str>) -> ServerConfig {
+        ServerConfig {
+            command: command.map(String::from),
+            args: Vec::new(),
+            env: HashMap::new(),
+            url: url.map(String::from),
+            headers: HashMap::new(),
+            disabled: false,
+        }
+    }
+
+    #[test]
+    fn remote_http_uses_one_failure_threshold() {
+        let cfg = config(None, Some("https://example.com/mcp"));
+        assert_eq!(max_probe_failures(&cfg), 1);
+    }
+
+    #[test]
+    fn stdio_uses_default_threshold() {
+        let cfg = config(Some("node"), None);
+        assert_eq!(max_probe_failures(&cfg), MAX_PROBE_FAILURES);
+    }
+
+    #[test]
+    fn command_and_url_uses_stdio_threshold() {
+        // Matches start_servers_batch: is_stdio() is checked before is_remote(),
+        // so a config with both connects over STDIO and keeps the STDIO retry.
+        let cfg = config(Some("node"), Some("https://example.com/mcp"));
+        assert_eq!(max_probe_failures(&cfg), MAX_PROBE_FAILURES);
     }
 }

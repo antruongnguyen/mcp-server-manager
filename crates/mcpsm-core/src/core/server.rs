@@ -46,10 +46,10 @@ impl<'de> Deserialize<'de> for ServerConfig {
         let mut headers = raw.headers;
 
         // Migrate legacy auth_header into headers if present and Authorization not already set
-        if let Some(token) = raw.auth_header {
-            if !headers.contains_key("Authorization") {
-                headers.insert("Authorization".into(), format!("Bearer {}", token));
-            }
+        if let Some(token) = raw.auth_header
+            && !headers.contains_key("Authorization")
+        {
+            headers.insert("Authorization".into(), format!("Bearer {}", token));
         }
 
         Ok(ServerConfig {

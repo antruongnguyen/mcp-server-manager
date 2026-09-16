@@ -242,11 +242,11 @@ pub async fn get_memory(State(state): State<Arc<AppState>>) -> Json<serde_json::
             ServerStatus::Ready { pid } => *pid,
             _ => None,
         };
-        if let Some(pid) = pid {
-            if let Some(mem) = get_memory_footprint(pid) {
-                server_memory.insert(id.clone(), serde_json::json!({ "pid": pid, "mem": mem }));
-                servers_total += mem;
-            }
+        if let Some(pid) = pid
+            && let Some(mem) = get_memory_footprint(pid)
+        {
+            server_memory.insert(id.clone(), serde_json::json!({ "pid": pid, "mem": mem }));
+            servers_total += mem;
         }
     }
 

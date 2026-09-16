@@ -141,7 +141,7 @@ This project uses **objc2 0.6** with **edition 2024**. Key patterns:
 - `NSMenuItem::setTarget` IS unsafe.
 - `DashboardHelper::alloc()` needs `use objc2::AnyThread`.
 
-## rmcp API Notes (v1.1)
+## rmcp API Notes (v1.8)
 
 - `InitializeResult.server_info` is `Implementation` directly (NOT `Option<Implementation>`)
 - `Implementation` has: `name`, `version`, `title: Option`, `description: Option`, `icons: Option`, `website_url: Option`
@@ -152,3 +152,5 @@ This project uses **objc2 0.6** with **edition 2024**. Key patterns:
 - `ListToolsResult { tools, next_cursor: None, meta: None }` — has `meta` field, NOT non_exhaustive
 - `rmcp::ErrorData` (not `rmcp::Error`) — `ErrorData::invalid_params(msg, data)`
 - Cancel via `client.cancellation_token().cancel()` (not `client.cancel()` which consumes self)
+- **v1.8 changes from v1.1**: `peer().peer_info()` returns `Option<Arc<InitializeResult>>` (was `Option<&_>`) — clone via `.map(|i| (*i).clone())`, not `.cloned()`. `StreamableHttpServerConfig` is now `#[non_exhaustive]` — build from `default()` and set fields, no struct literal.
+- **Logging deprecated (SEP-2577)**: `Peer::set_level` and `ServerCapabilitiesBuilder::enable_logging` are deprecated but still functional; MCPSM keeps them behind targeted `#[allow(deprecated)]` (see `mcp/proxy.rs`, `mcp/client.rs`).
